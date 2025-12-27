@@ -2,7 +2,7 @@ import { Trees, Bell } from "lucide-react";
 
 export default function NavBar() {
     return (
-        <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <nav className="bg-gray-50 border-b border-gray-200 sticky top-0 z-50">
             <div className="max-w-full px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
 
@@ -10,12 +10,14 @@ export default function NavBar() {
                     <div className="flex items-center space-x-8">
                         
                         {/* Branding */}
-                        <div className="flex items-center space-x-2">
-                            {/* Logo */}
-                            <Trees className="w-8 h-8 text-green-600" />
-                            {/* Title */}
-                            <span className="text-xl font-bold text-gray-900">ParkQuest</span>
-                        </div>
+                        <a href="/" className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2">
+                                {/* Logo */}
+                                <Trees className="w-8 h-8 text-green-600" />
+                                {/* Title */}
+                                <span className="text-xl font-bold text-gray-900">ParkQuest</span>
+                            </div>
+                        </a>
 
                         {/* Navigation Links */}
                         <div className="hidden md:flex space-x-1">
