@@ -1,6 +1,9 @@
 import { Star, Check } from "lucide-react";
+import { useState } from "react";
+import SignUpModal from "./SignUpModal";
 
 export default function Hero() {
+    const [showSignUpModal, setShowSignUpModal] = useState(false);
     return (
         <div
             className="text-white"
@@ -27,10 +30,10 @@ export default function Hero() {
 
                         {/* Buttons */}
                         <div className="flex flex-col sm:flex-row gap-4">
-                            <button className="bg-white text-green-700 px-8 py-4 rounded-lg font-bold text-lg hover:bg-green-100 transition shadow-lg">
-                                Start Tracking Free
+                            <button className="bg-white text-green-700 px-8 py-4 rounded-lg font-bold text-lg hover:bg-green-100 transition shadow-lg" onClick={() => setShowSignUpModal(true)}>
+                                Start Tracking
                             </button>
-                            <button className="border-2 border-white text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-green-100 hover:bg-opacity-10 hover:text-green-700 transition">
+                            <button className="border-2 border-white text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-green-100 hover:bg-opacity-10 hover:text-green-700 transition" onClick={() => window.location.href = '#map'}>
                                 Explore Map
                             </button>
                         </div>
@@ -96,6 +99,7 @@ export default function Hero() {
                     
                 </div>
             </div>
+            {showSignUpModal && <SignUpModal open={showSignUpModal} onOpenChange={setShowSignUpModal} />}
         </div>
     );
 }

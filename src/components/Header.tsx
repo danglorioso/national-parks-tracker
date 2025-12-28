@@ -16,7 +16,7 @@ export default function Header() {
     const navLinks = (
         <>
             <Link href="#features" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition p-2 rounded-lg font-medium">Features</Link>
-            <Link href="#how-it-works" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition p-2 rounded-lg font-medium">How It Works</Link>
+            <Link href="#map" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition p-2 rounded-lg font-medium">How It Works</Link>
         </>
     );
 
