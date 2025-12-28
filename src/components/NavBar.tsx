@@ -91,7 +91,7 @@ export default function NavBar() {
                             
                             {/* Account Dropdown */}
                             {accountDropdownOpen && (
-                                <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                                <div className="dropdown-enter absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                                     <div className="p-6 space-y-4">
                                         <div>
                                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
