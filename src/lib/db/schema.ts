@@ -1,9 +1,14 @@
-import { pgTable, text, timestamp, varchar, integer, serial, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, varchar, integer, serial, jsonb, boolean } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
-  clerkUserId: varchar('clerk_user_id', { length: 255 }).primaryKey(),
-  username: varchar('username', { length: 255 }).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  id: varchar('id', { length: 255 }).primaryKey(), // Clerk user ID
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  name: varchar('name', { length: 255 }),
+  first_name: varchar('first_name', { length: 255 }),
+  last_name: varchar('last_name', { length: 255 }),
+  email_verified: boolean('email_verified').default(false).notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const parks = pgTable('parks', {
@@ -18,7 +23,7 @@ export const parks = pgTable('parks', {
 
 export const visits = pgTable('visits', {
   id: serial('id').primaryKey(),
-  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.clerkUserId),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id),
   park_code: varchar('park_code', { length: 10 }).notNull().references(() => parks.park_code),
   visitedDate: timestamp('visited_date'),
   rating: integer('rating'),

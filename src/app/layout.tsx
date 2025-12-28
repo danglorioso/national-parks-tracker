@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
+import { ClerkProvider } from "@clerk/nextjs";
 import Footer from "../components/Footer";
 
 const inter = Inter({
@@ -25,21 +26,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${inter.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
-      >
-        <div className="flex-1">
-          {children}
-        </div>
+    <ClerkProvider>
+      <html lang="en">
+        <body
+          className={`${inter.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
+        >
+          <div className="flex-1">
+            {children}
+          </div>
 
-        {/* Footer */}
-        <Footer />
+          {/* Footer */}
+          <Footer />
 
-        {/* Vercel Analytics */}
-        <Analytics />
+          {/* Vercel Analytics */}
+          <Analytics />
 
-      </body>
-    </html>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
