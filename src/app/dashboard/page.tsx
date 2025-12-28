@@ -6,15 +6,15 @@ import Legend from '@/components/Legend';
 
 export default function DashboardPage() {
     return (
-        <div className="">
+        <div className="flex flex-col min-h-screen">
             {/* Navigation Bar */}
             <Nav />
 
             {/* Body */}
-            <div className="flex flex-row h-[calc(100vh-64px)]">
+            <div className="flex flex-1 flex-row min-h-0">
 
                 {/* Left Sidebar */}
-                <div className=" bg-gray-50 border-r border-gray-200 overflow-y-auto p-6">
+                <div className="w-80 bg-gray-50 border-r border-gray-200 overflow-y-auto p-6">
                     <ProgressCard />
                     <QuickStats />
                     <RecentBadges />
@@ -22,12 +22,13 @@ export default function DashboardPage() {
 
                 {/* Right Map */}
                 <div className="flex-1 p-8 overflow-y-auto relative">
-                    {/* Main dashboard content can go here */}
-                    <h1 className="text-2xl font-bold mb-4">Welcome to your Dashboard</h1>
-                    <p className="text-gray-700">Here you can track your park visits, view badges, and explore the community.</p>
+                    
+                    
+                    {/* Legend */}
                     <div className="absolute bottom-4 left-4">
                         <Legend />
                     </div>
+                    
                 </div>
 
             </div>

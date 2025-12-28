@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
-
+import Footer from "../components/Footer";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,13 +27,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
       >
-        {children}
+        <div className="flex-1">
+          {children}
+        </div>
+
+        {/* Footer */}
+        <Footer />
 
         {/* Vercel Analytics */}
         <Analytics />
-        
+
       </body>
     </html>
   );
