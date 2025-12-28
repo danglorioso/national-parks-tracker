@@ -115,7 +115,7 @@ export default function LeafletMap({
                   onMarkNotVisited && (
                     <button
                       onClick={() => onMarkNotVisited(park.park_code)}
-                      className="w-full px-3 py-1.5 border border-gray-600 text-gray-600 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                      className="w-full px-3 py-1.5 border border-gray-600 text-gray-600 text-sm font-medium rounded-md hover:bg-green-100 transition-colors flex items-center justify-center gap-2"
                     >
                       <CircleX className="w-4 h-4" />
                       Mark Unvisited
@@ -139,7 +139,7 @@ export default function LeafletMap({
                     {park.status === 'bucketList' && onRemoveFromBucketList && (
                       <button
                         onClick={() => onRemoveFromBucketList(park.park_code)}
-                        className="w-full px-3 py-1.5 border border-yellow-600 text-yellow-600 text-sm font-medium rounded-md hover:bg-yellow-600 hover:text-white transition-colors flex items-center justify-center gap-2"
+                        className="w-full px-3 py-1.5 border border-yellow-400 text-yellow-600 text-sm font-medium rounded-md hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
                       >
                         <BookmarkX className="w-4 h-4" />
                         Remove from Bucket List
@@ -148,7 +148,7 @@ export default function LeafletMap({
                     {park.status !== 'bucketList' && onAddToBucketList && (
                       <button
                         onClick={() => onAddToBucketList(park.park_code)}
-                        className="w-full px-3 py-1.5 bg-yellow-500 text-white text-sm font-medium rounded-md hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+                        className="w-full px-3 py-1.5 bg-yellow-500 text-white text-sm font-medium rounded-md hover:bg-yellow-400 transition-colors flex items-center justify-center gap-2"
                       >
                         <Bookmark className="w-4 h-4" />
                         Add to Bucket List
