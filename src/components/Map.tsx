@@ -14,8 +14,29 @@ interface MapProps {
   className?: string;
   parks?: Park[];
   onMarkVisited?: (parkCode: string) => void;
+  onAddToBucketList?: (parkCode: string) => void;
+  onRemoveFromBucketList?: (parkCode: string) => void;
+  onMarkNotVisited?: (parkCode: string) => void;
 }
 
-export default function Map(props: MapProps) {
-  return <LeafletMap {...props} />;
+export default function Map({ 
+  center, 
+  zoom, 
+  className, 
+  parks, 
+  onMarkVisited, 
+  onAddToBucketList, 
+  onRemoveFromBucketList, 
+  onMarkNotVisited, 
+}: MapProps) {
+  return <LeafletMap 
+    center={center} 
+    zoom={zoom} 
+    className={className} 
+    parks={parks} 
+    onMarkVisited={onMarkVisited} 
+    onAddToBucketList={onAddToBucketList} 
+    onRemoveFromBucketList={onRemoveFromBucketList} 
+    onMarkNotVisited={onMarkNotVisited} 
+  />;
 }

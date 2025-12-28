@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { CheckCircle2, Bookmark, CircleX, BookmarkX } from 'lucide-react';
 
 export interface Park {
   park_code: string;
@@ -19,6 +20,9 @@ interface LeafletMapProps {
   className?: string;
   parks?: Park[];
   onMarkVisited?: (parkCode: string) => void;
+  onAddToBucketList?: (parkCode: string) => void;
+  onRemoveFromBucketList?: (parkCode: string) => void;
+  onMarkNotVisited?: (parkCode: string) => void;
 }
 
 const createCustomIcon = (color: string) => {
@@ -45,7 +49,10 @@ export default function LeafletMap({
   zoom = 13,
   className = "h-96 w-full",
   parks = [],
-  onMarkVisited
+  onMarkVisited,
+  onAddToBucketList,
+  onRemoveFromBucketList,
+  onMarkNotVisited,
 }: LeafletMapProps) {
   const [isClient, setIsClient] = useState(false);
   const [markerIcons, setMarkerIcons] = useState<{
@@ -101,19 +108,55 @@ export default function LeafletMap({
               {park.description && (
                 <div className="text-sm text-gray-600 mt-1 mb-3">{park.description}</div>
               )}
-              {onMarkVisited && park.status !== 'visited' && (
-                <button
-                  onClick={() => onMarkVisited(park.park_code)}
-                  className="w-full mt-2 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
-                >
-                  Mark Visited
-                </button>
-              )}
-              {park.status === 'visited' && (
-                <div className="mt-2 text-sm text-green-600 font-medium">
-                  ✓ Visited
-                </div>
-              )}
+
+              <div className="flex flex-col gap-2 mt-2">
+                {/* Mark Visited / Mark Unvisited (opposites) */}
+                {park.status === 'visited' ? (
+                  onMarkNotVisited && (
+                    <button
+                      onClick={() => onMarkNotVisited(park.park_code)}
+                      className="w-full px-3 py-1.5 border border-gray-600 text-gray-600 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <CircleX className="w-4 h-4" />
+                      Mark Unvisited
+                    </button>
+                  )
+                ) : (
+                  onMarkVisited && (
+                    <button
+                      onClick={() => onMarkVisited(park.park_code)}
+                      className="w-full px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Mark Visited
+                    </button>
+                  )
+                )}
+
+                {/* Add to Bucket List / Remove from Bucket List (opposites) - only show if not visited */}
+                {park.status !== 'visited' && (
+                  <>
+                    {park.status === 'bucketList' && onRemoveFromBucketList && (
+                      <button
+                        onClick={() => onRemoveFromBucketList(park.park_code)}
+                        className="w-full px-3 py-1.5 border border-yellow-600 text-yellow-600 text-sm font-medium rounded-md hover:bg-yellow-600 hover:text-white transition-colors flex items-center justify-center gap-2"
+                      >
+                        <BookmarkX className="w-4 h-4" />
+                        Remove from Bucket List
+                      </button>
+                    )}
+                    {park.status !== 'bucketList' && onAddToBucketList && (
+                      <button
+                        onClick={() => onAddToBucketList(park.park_code)}
+                        className="w-full px-3 py-1.5 bg-yellow-500 text-white text-sm font-medium rounded-md hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Bookmark className="w-4 h-4" />
+                        Add to Bucket List
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </Popup>
         </Marker>

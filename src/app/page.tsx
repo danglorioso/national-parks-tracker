@@ -62,11 +62,19 @@ export default function Home() {
       // Set total parks count (all parks, not just those with coordinates)
       setTotalParksCount(parksData.length);
       
-      // Get visited park codes and count
+      // Get visited park codes and bucket list park codes
       let visitedParkCodes: Set<string> = new Set();
+      let bucketListParkCodes: Set<string> = new Set();
       if (visitsResponse.ok) {
-        const visitsData: Array<{ park_code: string; is_bucket_list: boolean }> = await visitsResponse.json();
-        visitedParkCodes = new Set(visitsData.map(visit => visit.park_code));
+        const visitsData: Array<{ park_code: string; is_bucket_list: boolean; visited_date: string | null }> = await visitsResponse.json();
+        visitsData.forEach(visit => {
+          if (visit.is_bucket_list) {
+            bucketListParkCodes.add(visit.park_code);
+          } else if (visit.visited_date) {
+            visitedParkCodes.add(visit.park_code);
+          }
+        });
+        // Count only visited parks (not bucket list)
         setVisitedParksCount(visitedParkCodes.size);
       } else {
         setVisitedParksCount(0);
@@ -75,16 +83,24 @@ export default function Home() {
       // Transform database parks to map format (only parks with coordinates)
       const transformedParks: ParkForMap[] = parksData
         .filter(park => park.latitude && park.longitude)
-        .map(park => ({
-          park_code: park.park_code,
-          name: park.name,
-          position: [
-            parseFloat(park.latitude!),
-            parseFloat(park.longitude!)
-          ] as [number, number],
-          status: visitedParkCodes.has(park.park_code) ? 'visited' as const : 'notVisited' as const,
-          description: park.description || undefined,
-        }));
+        .map(park => {
+          let status: 'visited' | 'notVisited' | 'bucketList' = 'notVisited';
+          if (visitedParkCodes.has(park.park_code)) {
+            status = 'visited';
+          } else if (bucketListParkCodes.has(park.park_code)) {
+            status = 'bucketList';
+          }
+          return {
+            park_code: park.park_code,
+            name: park.name,
+            position: [
+              parseFloat(park.latitude!),
+              parseFloat(park.longitude!)
+            ] as [number, number],
+            status,
+            description: park.description || undefined,
+          };
+        });
       
       setParks(transformedParks);
     } catch (error) {
@@ -101,7 +117,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ park_code: parkCode }),
+        body: JSON.stringify({ park_code: parkCode, is_bucket_list: false }),
       });
 
       if (!response.ok) {
@@ -121,6 +137,82 @@ export default function Home() {
       setVisitedParksCount(prev => prev + 1);
     } catch (error) {
       console.error('Error marking park as visited:', error);
+    }
+  };
+
+  const handleAddToBucketList = async (parkCode: string) => {
+    try {
+      const response = await fetch('/api/visits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ park_code: parkCode, is_bucket_list: true }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add park to bucket list');
+      }
+
+      // Update the park status in the local state
+      setParks(prevParks =>
+        prevParks.map(park =>
+          park.park_code === parkCode
+            ? { ...park, status: 'bucketList' as const }
+            : park
+        )
+      );
+    } catch (error) {
+      console.error('Error adding park to bucket list:', error);
+    }
+  };
+
+  const handleRemoveFromBucketList = async (parkCode: string) => {
+    try {
+      const response = await fetch(`/api/visits?park_code=${parkCode}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove park from bucket list');
+      }
+
+      // Update the park status in the local state
+      setParks(prevParks =>
+        prevParks.map(park =>
+          park.park_code === parkCode
+            ? { ...park, status: 'notVisited' as const }
+            : park
+        )
+      );
+    } catch (error) {
+      console.error('Error removing park from bucket list:', error);
+    }
+  };
+
+  const handleMarkNotVisited = async (parkCode: string) => {
+    try {
+      const response = await fetch(`/api/visits?park_code=${parkCode}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark park as unvisited');
+      }
+
+      // Update the park status in the local state
+      setParks(prevParks =>
+        prevParks.map(park =>
+          park.park_code === parkCode
+            ? { ...park, status: 'notVisited' as const }
+            : park
+        )
+      );
+      
+      // Update visited count
+      setVisitedParksCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking park as unvisited:', error);
     }
   };
 
@@ -174,6 +266,9 @@ export default function Home() {
                   className="h-full w-full"
                   parks={parks}
                   onMarkVisited={handleMarkVisited}
+                  onAddToBucketList={handleAddToBucketList}
+                  onRemoveFromBucketList={handleRemoveFromBucketList}
+                  onMarkNotVisited={handleMarkNotVisited}
                 />
                 
                 {/* Legend - positioned over the map */}
