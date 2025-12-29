@@ -173,7 +173,7 @@ export default function SignUpModal({ open, onOpenChange, switchToSignIn }: Sign
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full hover:cursor-pointer"
               onClick={() => handleOAuth("oauth_google")}
               disabled={!isLoaded}
             >
@@ -200,7 +200,7 @@ export default function SignUpModal({ open, onOpenChange, switchToSignIn }: Sign
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full hover:cursor-pointer"
               onClick={() => handleOAuth("oauth_apple")}
               disabled={!isLoaded}
             >
@@ -296,7 +296,7 @@ export default function SignUpModal({ open, onOpenChange, switchToSignIn }: Sign
                     onOpenChange(false);
                     switchToSignIn();
                   }}
-                  className="text-green-600 hover:text-green-700 font-medium"
+                  className="text-green-600 hover:text-green-700 font-medium hover:cursor-pointer"
                 >
                   Sign in
                 </button>
