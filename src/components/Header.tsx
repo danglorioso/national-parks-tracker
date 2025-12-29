@@ -17,6 +17,7 @@ export default function Header() {
         <>
             <Link href="#features" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition p-2 rounded-lg font-medium">Features</Link>
             <Link href="#map" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition p-2 rounded-lg font-medium">How It Works</Link>
+            <Link href="#about" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition p-2 rounded-lg font-medium">About</Link>
         </>
     );
 
@@ -30,13 +31,13 @@ export default function Header() {
                         {navLinks}
                         <Button 
                             variant="outline" 
-                            className="text-green-600 border-green-400 hover:text-green-700 hover:bg-gray-100"
+                            className="text-green-600 border-green-400 hover:text-green-700 hover:bg-gray-100 hover:cursor-pointer"
                             onClick={() => setSignInOpen(true)}
                         >
                             Sign In
                         </Button>
                         <Button 
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            className="bg-green-600 hover:bg-green-700 text-white hover:cursor-pointer"
                             onClick={() => setSignUpOpen(true)}
                         >
                             Get Started
