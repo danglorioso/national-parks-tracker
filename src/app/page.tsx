@@ -13,6 +13,7 @@ import QuickStats from "@/components/QuickStats";
 import RecentBadges from "@/components/RecentBadges";
 import Legend from "@/components/Legend";
 import Map from "@/components/Map";
+import VisitDateDialog from "@/components/VisitDateDialog";
 
 interface ParkFromDB {
   park_code: string;
@@ -37,6 +38,9 @@ export default function Home() {
   const [totalParksCount, setTotalParksCount] = useState(0);
   const [visitedParksCount, setVisitedParksCount] = useState(0);
   const [isLoadingParks, setIsLoadingParks] = useState(true);
+  const [showVisitDateDialog, setShowVisitDateDialog] = useState(false);
+  const [pendingParkCode, setPendingParkCode] = useState<string | null>(null);
+  const [pendingParkName, setPendingParkName] = useState<string>("");
 
   useEffect(() => {
     if (isSignedIn) {
@@ -114,14 +118,32 @@ export default function Home() {
     }
   };
 
-  const handleMarkVisited = async (parkCode: string) => {
+  const handleMarkVisited = (parkCode: string) => {
+    const park = parks.find(p => p.park_code === parkCode);
+    if (park) {
+      setPendingParkCode(parkCode);
+      setPendingParkName(park.name);
+      setShowVisitDateDialog(true);
+    }
+  };
+
+  const handleConfirmVisitDate = async (date: Date) => {
+    if (!pendingParkCode) return;
+
+    const park = parks.find(p => p.park_code === pendingParkCode);
+    const wasAlreadyVisited = park?.status === 'visited';
+
     try {
       const response = await fetch('/api/visits', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ park_code: parkCode, is_bucket_list: false }),
+        body: JSON.stringify({ 
+          park_code: pendingParkCode, 
+          is_bucket_list: false,
+          visited_date: date.toISOString()
+        }),
       });
 
       if (!response.ok) {
@@ -131,16 +153,21 @@ export default function Home() {
       // Update the park status in the local state
       setParks(prevParks =>
         prevParks.map(park =>
-          park.park_code === parkCode
-            ? { ...park, status: 'visited' as const, visitedDate: new Date().toISOString() }
+          park.park_code === pendingParkCode
+            ? { ...park, status: 'visited' as const, visitedDate: date.toISOString() }
             : park
         )
       );
       
-      // Update visited count
-      setVisitedParksCount(prev => prev + 1);
+      // Update visited count only if it wasn't already visited
+      if (!wasAlreadyVisited) {
+        setVisitedParksCount(prev => prev + 1);
+      }
     } catch (error) {
       console.error('Error marking park as visited:', error);
+    } finally {
+      setPendingParkCode(null);
+      setPendingParkName("");
     }
   };
 
@@ -283,6 +310,12 @@ export default function Home() {
             )}
           </div>
         </div>
+        <VisitDateDialog
+          open={showVisitDateDialog}
+          onOpenChange={setShowVisitDateDialog}
+          parkName={pendingParkName}
+          onConfirm={handleConfirmVisitDate}
+        />
       </div>
     );
   }

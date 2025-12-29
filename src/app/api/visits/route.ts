@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { park_code, is_bucket_list } = body;
+    const { park_code, is_bucket_list, visited_date } = body;
 
     if (!park_code) {
       return NextResponse.json(
@@ -59,6 +59,8 @@ export async function POST(request: Request) {
     }
 
     const isBucketList = is_bucket_list === true;
+    // Parse visited_date if provided, otherwise use current date (or null for bucket list)
+    const visitDate = visited_date ? new Date(visited_date) : (isBucketList ? null : new Date());
 
     // Check if visit already exists
     const existingVisit = await db
@@ -90,24 +92,24 @@ export async function POST(request: Request) {
           visit: updated[0]
         });
       }
-      if (!isBucketList && existing.is_bucket_list) {
-        // Update from bucket list to visited
+      if (!isBucketList) {
+        // Marking as visited (either from bucket list or updating existing visit date)
         const updated = await db
           .update(visits)
           .set({ 
             is_bucket_list: false,
-            visited_date: new Date()
+            visited_date: visitDate as Date
           })
           .where(eq(visits.id, existing.id))
           .returning();
         return NextResponse.json({ 
-          message: 'Park marked as visited',
+          message: existing.is_bucket_list ? 'Park marked as visited' : 'Visit date updated',
           visit: updated[0]
         });
       }
-      // Visit already exists, return success
+      // Visit already exists as bucket list, return success
       return NextResponse.json({ 
-        message: isBucketList ? 'Park already in bucket list' : 'Park already marked as visited',
+        message: 'Park already in bucket list',
         visit: existing
       });
     }
@@ -118,7 +120,7 @@ export async function POST(request: Request) {
       .values({
         clerk_user_id: userId,
         park_code: park_code,
-        visited_date: isBucketList ? null as any : new Date(),
+        visited_date: visitDate as any,
         is_bucket_list: isBucketList,
       })
       .returning();
