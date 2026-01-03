@@ -5,6 +5,7 @@ import Logo from "./Logo";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
 
 interface NavBarProps {
     visitedParksCount: number;
@@ -16,6 +17,7 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
     const { user, isLoaded } = useUser();
     const { signOut } = useClerk();
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const pathname = usePathname();
 
     const fullName = user?.firstName && user?.lastName 
         ? `${user.firstName} ${user.lastName}` 
@@ -63,10 +65,46 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
 
                         {/* Navigation Links */}
                         <div className="hidden md:flex space-x-1">
-                            <Link href="/map" className="px-4 py-2 text-green-600 bg-green-50 rounded-lg font-medium">Map</Link>
-                            <Link href="/visits" className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium">My Visits</Link>
-                            <Link href="/badges" className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium">Badges</Link>
-                            <Link href="/community" className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg font-medium">Community</Link>
+                            <Link 
+                                href="/map" 
+                                className={`px-4 py-2 rounded-lg font-medium transition ${
+                                    pathname === '/' || pathname === '/map'
+                                        ? 'text-green-600 bg-green-50'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                Map
+                            </Link>
+                            <Link 
+                                href="/visits" 
+                                className={`px-4 py-2 rounded-lg font-medium transition ${
+                                    pathname === '/visits'
+                                        ? 'text-green-600 bg-green-50'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                My Visits
+                            </Link>
+                            <Link 
+                                href="/badges" 
+                                className={`px-4 py-2 rounded-lg font-medium transition ${
+                                    pathname === '/badges'
+                                        ? 'text-green-600 bg-green-50'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                Badges
+                            </Link>
+                            <Link 
+                                href="/community" 
+                                className={`px-4 py-2 rounded-lg font-medium transition ${
+                                    pathname === '/community'
+                                        ? 'text-green-600 bg-green-50'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                Community
+                            </Link>
                         </div>
                     </div>
                     {/* Right Side */}
