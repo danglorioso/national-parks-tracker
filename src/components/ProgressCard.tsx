@@ -7,7 +7,7 @@ export default function ProgressCard({ visitedCount, totalCount }: ProgressCardP
     const percentage = totalCount > 0 ? Math.round((visitedCount / totalCount) * 100) : 0;
     
     return (
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white mb-6">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
             <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold">Your Progress</h2>
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">

@@ -268,7 +268,7 @@ export default function Home() {
         {/* Body */}
         <div className="flex flex-1 flex-col md:flex-row min-h-0 overflow-hidden">
           {/* Left Sidebar */}
-          <div className="w-full md:w-80 bg-gray-50 border-r-0 md:border-r border-gray-200 border-b md:border-b-0 overflow-y-auto p-6 max-h-[40vh] md:max-h-none">
+          <div className="w-full md:w-80 bg-gray-50 border-r-0 md:border-r border-gray-200 border-b md:border-b-0 overflow-y-auto p-6 max-h-[40vh] md:max-h-none space-y-6">
             <ProgressCard 
               visitedCount={visitedParksCount}
               totalCount={totalParksCount}
