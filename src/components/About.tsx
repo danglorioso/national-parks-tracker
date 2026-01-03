@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import Map from "./Map";
 import SignUpModal from "./SignUpModal";
-import { Info } from "lucide-react";
+import { FlagTriangleRight } from "lucide-react";
 
 interface ParkFromDB {
   park_code: string;
@@ -134,7 +134,7 @@ export default function About() {
               <CardContent>
               <div className="flex items-start space-x-3">
                 <div className="bg-green-100 rounded-lg p-2">
-                  <Info className="w-6 h-6 text-green-600" />
+                  <FlagTriangleRight className="w-6 h-6 text-green-600" />
                 </div>
                 <div>
                   <h4 className="font-bold text-gray-900 mb-1">Start Your Journey</h4>
