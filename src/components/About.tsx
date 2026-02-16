@@ -81,7 +81,7 @@ export default function About() {
         </div>
 
         {/* Two Column Layout: About Content | Map */}
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-stretch">
           {/* Left Column: About Content */}
           <div>
             <Card className="bg-gray-50 border-gray-200">
@@ -111,24 +111,25 @@ export default function About() {
           </div>
 
           {/* Right Column: Map */}
-          <div className="space-y-4 items-center justify-center flex flex-col">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">See Your Progress on the Map</h3>
-
-            <div className="bg-gray-100 rounded-2xl overflow-hidden shadow-xl relative h-96 w-full map-homepage-container">
-              {isLoadingParks ? (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-lg text-gray-600">Loading parks...</div>
-                </div>
-              ) : (
-                <div className="h-full w-full relative" style={{ zIndex: 0 }}>
-                  <Map 
-                    center={[39.8283, -98.5795]} 
-                    zoom={3}
-                    className="h-full w-full"
-                    parks={parks}
-                  />
-                </div>
-              )}
+          <div className="flex flex-col h-full gap-8 justify-between">
+            <div className="w-full items-center">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">See Your Progress on the Map</h3>
+              <div className="bg-gray-100 rounded-2xl overflow-hidden shadow-xl relative h-96 w-full map-homepage-container">
+                {isLoadingParks ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-lg text-gray-600">Loading parks...</div>
+                  </div>
+                ) : (
+                  <div className="h-full w-full relative" style={{ zIndex: 0 }}>
+                    <Map 
+                      center={[39.8283, -98.5795]} 
+                      zoom={3}
+                      className="h-full w-full"
+                      parks={parks}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <Card className="bg-gray-50/20 border-gray-200">
               <CardContent>
