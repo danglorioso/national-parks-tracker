@@ -1,8 +1,9 @@
 "use client";
 
-import { Bell, CheckCircle2, Mail, LogOut } from "lucide-react";
+import { Bell } from "lucide-react";
 import Logo from "./Logo";
 import Link from "next/link";
+import AccountDropdown from "./AccountDropdown";
 import { useState, useRef, useEffect } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
@@ -108,7 +109,7 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                     <div className="flex items-center space-x-4">
 
                         {/* Notification Bell */}
-                        <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                        <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition hover:cursor-pointer">
                             <Bell className="w-6 h-6" />
                         </button>
 
@@ -116,7 +117,7 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                         <div className="relative" ref={dropdownRef}>
                             <button
                                 onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
-                                className="flex items-center space-x-3 hover:bg-gray-100 rounded-lg px-2 py-1 transition"
+                                className="flex items-center space-x-3 hover:bg-gray-100 rounded-lg px-2 py-1 transition hover:cursor-pointer"
                             >
                                 <div className="text-right hidden sm:block">
                                     {isLoaded ? (<div className="text-sm font-medium text-gray-900">{fullName}</div>) : (<Skeleton className="h-4 w-20 rounded-md bg-gray-300 mb-2" />)}
@@ -129,61 +130,7 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                                 />) : (<Skeleton className="w-10 h-10 rounded-full bg-gray-300 border-green-500 border-2" />)}
                             </button>
                             
-                            {/* Account Dropdown */}
-                            {accountDropdownOpen && user &&(
-                                <div className="dropdown-enter absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg">
-                                    <div className="p-6 space-y-4">
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-500">Name</p>
-                                                    <p className="text-lg font-semibold">{fullName}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-500">Email</p>
-                                                    <div className="flex items-center gap-2">
-                                                        <Mail className="h-4 w-4 text-gray-400" />
-                                                        <p className="text-base">{user.primaryEmailAddress?.emailAddress}</p>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-500">Email Status</p>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        {emailVerified ? (
-                                                            <>
-                                                                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                                                <span className="text-sm text-green-600">Verified</span>
-                                                            </>
-                                                        ) : (
-                                                            <span className="text-sm text-yellow-600">Pending verification</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                {user.createdAt && (
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-500">Member since</p>
-                                                        <p className="text-base">{new Date(user.createdAt).toLocaleDateString('en-US', { 
-                                                            year: 'numeric', 
-                                                            month: 'long', 
-                                                            day: 'numeric' 
-                                                        })}</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="border-t border-gray-200 pt-4">
-                                            <button
-                                                onClick={handleSignOut}
-                                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-medium"
-                                            >
-                                                <LogOut className="h-4 w-4" />
-                                                Sign Out
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            <AccountDropdown isOpen={accountDropdownOpen} onSignOut={handleSignOut} />
                         </div>
                         
                     </div>
