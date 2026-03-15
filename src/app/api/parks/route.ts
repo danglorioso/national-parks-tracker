@@ -9,6 +9,7 @@ export async function GET() {
       .select({
         park_code: parks.park_code,
         name: parks.name,
+        states: parks.states,
         latitude: parks.latitude,
         longitude: parks.longitude,
         description: parks.description,
