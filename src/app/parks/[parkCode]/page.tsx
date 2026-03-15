@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
@@ -17,12 +17,15 @@ import {
   Mail,
   ExternalLink,
   ChevronLeft,
+  ChevronRight,
   Clock,
   DollarSign,
   CloudSun,
   Tag,
   Mountain,
   CalendarDays,
+  X,
+  Expand,
 } from "lucide-react";
 
 /* ─── NPS API Types ──────────────────────────────────────────────────────── */
@@ -126,7 +129,32 @@ export default function ParkPage({
 
   const [showVisitDateDialog, setShowVisitDateDialog] = useState(false);
   const [heroLoaded, setHeroLoaded] = useState(false);
-  const [activeImage, setActiveImage] = useState(0);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const openLightbox = (index: number) => setLightboxIndex(index);
+  const closeLightbox = () => setLightboxIndex(null);
+
+  const lightboxPrev = useCallback(() => {
+    if (!park) return;
+    setLightboxIndex((i) => (i === null ? 0 : (i - 1 + park.images.length) % park.images.length));
+  }, [park]);
+
+  const lightboxNext = useCallback(() => {
+    if (!park) return;
+    setLightboxIndex((i) => (i === null ? 0 : (i + 1) % park.images.length));
+  }, [park]);
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeLightbox();
+      if (e.key === "ArrowLeft") lightboxPrev();
+      if (e.key === "ArrowRight") lightboxNext();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [lightboxIndex, lightboxPrev, lightboxNext]);
 
   useEffect(() => {
     fetchPark();
@@ -249,7 +277,7 @@ export default function ParkPage({
   if (parkLoading) return <LoadingSkeleton />;
   if (parkError || !park) return <NotFound />;
 
-  const heroImage = park.images?.[activeImage];
+  const heroImage = park.images?.[0];
   const physicalAddress = park.addresses?.find((a) => a.type === "Physical") ?? park.addresses?.[0];
   const phone = park.contacts?.phoneNumbers?.find((p) => p.type === "Voice") ?? park.contacts?.phoneNumbers?.[0];
   const email = park.contacts?.emailAddresses?.[0];
@@ -316,26 +344,6 @@ export default function ParkPage({
         </div>
       </div>
 
-      {/* Image strip */}
-      {park.images?.length > 1 && (
-        <div className="bg-gray-900 px-4 sm:px-8 pb-3">
-          <div className="max-w-5xl mx-auto flex gap-2 overflow-x-auto scrollbar-hide">
-            {park.images.slice(0, 8).map((img, i) => (
-              <button
-                key={i}
-                onClick={() => { if (i !== activeImage) { setActiveImage(i); setHeroLoaded(false); } }}
-                className={`shrink-0 w-16 h-12 rounded overflow-hidden border-2 transition-colors ${
-                  activeImage === i ? "border-emerald-400" : "border-transparent opacity-60 hover:opacity-90"
-                }`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.url} alt={img.altText} className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Body */}
       <div className="max-w-5xl mx-auto w-full px-4 sm:px-8 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
@@ -356,6 +364,85 @@ export default function ParkPage({
               </a>
             )}
           </Section>
+
+          {/* Photo Carousel */}
+          {park.images?.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              {/* Main image */}
+              <div className="relative aspect-video bg-gray-900 group cursor-pointer" onClick={() => openLightbox(carouselIndex)}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  key={carouselIndex}
+                  src={park.images[carouselIndex].url}
+                  alt={park.images[carouselIndex].altText}
+                  className="w-full h-full object-cover"
+                />
+                {/* Expand hint on hover */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-3">
+                    <Expand className="h-5 w-5 text-white" />
+                  </div>
+                </div>
+
+                {/* Prev arrow */}
+                {park.images.length > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setCarouselIndex((i) => (i - 1 + park.images.length) % park.images.length); }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 bg-black/40 hover:bg-black/70 text-white rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                      aria-label="Previous photo"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setCarouselIndex((i) => (i + 1) % park.images.length); }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-black/40 hover:bg-black/70 text-white rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                      aria-label="Next photo"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+
+                {/* Counter */}
+                {park.images.length > 1 && (
+                  <div className="absolute bottom-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                    {carouselIndex + 1} / {park.images.length}
+                  </div>
+                )}
+              </div>
+
+              {/* Caption */}
+              {(park.images[carouselIndex].title || park.images[carouselIndex].caption) && (
+                <div className="px-4 py-3 border-t border-gray-100">
+                  {park.images[carouselIndex].title && (
+                    <p className="text-sm font-medium text-gray-800">{park.images[carouselIndex].title}</p>
+                  )}
+                  {park.images[carouselIndex].caption && (
+                    <p className="text-xs text-gray-400 mt-0.5">{park.images[carouselIndex].caption}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Dot indicators */}
+              {park.images.length > 1 && (
+                <div className="flex justify-center gap-1.5 py-3 border-t border-gray-100">
+                  {park.images.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCarouselIndex(i)}
+                      className={`rounded-full transition-all ${
+                        i === carouselIndex
+                          ? "w-4 h-2 bg-emerald-500"
+                          : "w-2 h-2 bg-gray-300 hover:bg-gray-400"
+                      }`}
+                      aria-label={`Go to photo ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Activities */}
           {park.activities?.length > 0 && (
@@ -601,14 +688,6 @@ export default function ParkPage({
         </div>
       </div>
 
-      {/* Image caption */}
-      {heroImage?.caption && (
-        <div className="max-w-5xl mx-auto w-full px-4 sm:px-8 pb-8">
-          <p className="text-xs text-gray-400 italic">
-            Photo: {heroImage.caption}{heroImage.credit ? ` — ${heroImage.credit}` : ""}
-          </p>
-        </div>
-      )}
 
       <VisitDateDialog
         open={showVisitDateDialog}
@@ -616,6 +695,70 @@ export default function ParkPage({
         parkName={park.fullName}
         onConfirm={handleConfirmVisitDate}
       />
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && park.images?.[lightboxIndex] && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={closeLightbox}
+        >
+          {/* Close */}
+          <button
+            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white transition-colors"
+            onClick={closeLightbox}
+            aria-label="Close"
+          >
+            <X className="h-6 w-6" />
+          </button>
+
+          {/* Counter */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-sm">
+            {lightboxIndex + 1} / {park.images.length}
+          </div>
+
+          {/* Prev */}
+          {park.images.length > 1 && (
+            <button
+              className="absolute left-3 sm:left-6 p-2 text-white/70 hover:text-white transition-colors"
+              onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
+              aria-label="Previous image"
+            >
+              <ChevronLeft className="h-8 w-8" />
+            </button>
+          )}
+
+          {/* Image */}
+          <div className="max-w-5xl max-h-[85vh] w-full px-16 flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={park.images[lightboxIndex].url}
+              alt={park.images[lightboxIndex].altText}
+              className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-2xl"
+            />
+            {(park.images[lightboxIndex].title || park.images[lightboxIndex].caption) && (
+              <div className="text-center">
+                {park.images[lightboxIndex].title && (
+                  <p className="text-white font-medium text-sm">{park.images[lightboxIndex].title}</p>
+                )}
+                {park.images[lightboxIndex].caption && (
+                  <p className="text-white/50 text-xs mt-0.5">{park.images[lightboxIndex].caption}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Next */}
+          {park.images.length > 1 && (
+            <button
+              className="absolute right-3 sm:right-6 p-2 text-white/70 hover:text-white transition-colors"
+              onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
+              aria-label="Next image"
+            >
+              <ChevronRight className="h-8 w-8" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
