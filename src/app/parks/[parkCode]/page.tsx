@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
+import Header from "@/components/Header";
 import VisitDateDialog from "@/components/VisitDateDialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -111,7 +112,7 @@ export default function ParkPage({
   params: Promise<{ parkCode: string }>;
 }) {
   const { parkCode } = use(params);
-  const { isSignedIn } = useUser();
+  const { isSignedIn, isLoaded } = useUser();
 
   const [park, setPark] = useState<NPSPark | null>(null);
   const [parkLoading, setParkLoading] = useState(true);
@@ -258,10 +259,14 @@ export default function ParkPage({
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <NavBar
-        visitedParksCount={visitedParksCount}
-        totalParksCount={totalParksCount}
-      />
+      {isLoaded && isSignedIn ? (
+        <NavBar
+          visitedParksCount={visitedParksCount}
+          totalParksCount={totalParksCount}
+        />
+      ) : (
+        <Header />
+      )}
 
       {/* Hero */}
       <div className="relative w-full h-72 sm:h-96 bg-gray-900 overflow-hidden">
@@ -318,7 +323,7 @@ export default function ParkPage({
             {park.images.slice(0, 8).map((img, i) => (
               <button
                 key={i}
-                onClick={() => { setActiveImage(i); setHeroLoaded(false); }}
+                onClick={() => { if (i !== activeImage) { setActiveImage(i); setHeroLoaded(false); } }}
                 className={`shrink-0 w-16 h-12 rounded overflow-hidden border-2 transition-colors ${
                   activeImage === i ? "border-emerald-400" : "border-transparent opacity-60 hover:opacity-90"
                 }`}
@@ -413,6 +418,25 @@ export default function ParkPage({
         <div className="space-y-5">
 
           {/* Visit Status Card */}
+          {isLoaded && !isSignedIn && (
+            <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-5 space-y-3 text-center">
+              <Mountain className="h-8 w-8 text-emerald-400 mx-auto" />
+              <p className="font-semibold text-gray-900 text-sm">Track your visits</p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Create a free account to log your visit, add this park to your bucket list, and track your progress across all US national parks.
+              </p>
+              <Link href="/sign-up">
+                <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                  Get started free
+                </Button>
+              </Link>
+              <Link href="/sign-in">
+                <Button size="sm" variant="outline" className="w-full text-xs mt-1">
+                  Sign in
+                </Button>
+              </Link>
+            </div>
+          )}
           {isSignedIn && (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-3">
               <h3 className="font-semibold text-gray-900 text-sm uppercase tracking-wide">
