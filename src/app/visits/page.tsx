@@ -2,13 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
+import Image from "next/image";
 import NavBar from "@/components/NavBar";
 import ProgressCard from "@/components/ProgressCard";
 import VisitDateDialog from "@/components/VisitDateDialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  CheckCircle2,
+  Bookmark,
+  MapPin,
+  Trash2,
+  CalendarDays,
+  Search,
+  Plus,
+} from "lucide-react";
 
 interface ParkFromDB {
   park_code: string;
@@ -21,10 +30,12 @@ interface ParkFromDB {
 interface ParkWithStatus {
   park_code: string;
   name: string;
-  status: 'visited' | 'notVisited' | 'bucketList';
+  status: "visited" | "notVisited" | "bucketList";
   visitedDate: string | null;
   description?: string;
 }
+
+type ActiveTab = "visited" | "bucketList" | "explore";
 
 export default function VisitsPage() {
   const { user, isSignedIn } = useUser();
@@ -36,10 +47,9 @@ export default function VisitsPage() {
   const [showVisitDateDialog, setShowVisitDateDialog] = useState(false);
   const [pendingParkCode, setPendingParkCode] = useState<string | null>(null);
   const [pendingParkName, setPendingParkName] = useState<string>("");
-  const [isBatchMarkingVisited, setIsBatchMarkingVisited] = useState(false);
-  const [isBatchAddingToBucketList, setIsBatchAddingToBucketList] = useState(false);
-  const [batchParkCodes, setBatchParkCodes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("visited");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (isSignedIn) {
@@ -51,29 +61,29 @@ export default function VisitsPage() {
     try {
       setIsLoadingParks(true);
       setLoading(true);
-      
-      // Fetch parks and visits in parallel
+
       const [parksResponse, visitsResponse] = await Promise.all([
-        fetch('/api/parks'),
-        fetch('/api/visits')
+        fetch("/api/parks"),
+        fetch("/api/visits"),
       ]);
 
-      if (!parksResponse.ok) {
-        throw new Error('Failed to fetch parks');
-      }
+      if (!parksResponse.ok) throw new Error("Failed to fetch parks");
 
       const parksData: ParkFromDB[] = await parksResponse.json();
-
-      // Set total parks count
       setTotalParksCount(parksData.length);
 
-      // Get visited park codes, bucket list park codes, and visit dates
       const visitedParkCodes: Set<string> = new Set();
       const bucketListParkCodes: Set<string> = new Set();
       const visitDatesMap: Record<string, string> = {};
+
       if (visitsResponse.ok) {
-        const visitsData: Array<{ park_code: string; is_bucket_list: boolean; visited_date: string | null }> = await visitsResponse.json();
-        visitsData.forEach(visit => {
+        const visitsData: Array<{
+          park_code: string;
+          is_bucket_list: boolean;
+          visited_date: string | null;
+        }> = await visitsResponse.json();
+
+        visitsData.forEach((visit) => {
           if (visit.is_bucket_list) {
             bucketListParkCodes.add(visit.park_code);
           } else if (visit.visited_date) {
@@ -81,7 +91,7 @@ export default function VisitsPage() {
             visitDatesMap[visit.park_code] = visit.visited_date;
           }
         });
-        // Count only visited parks (not bucket list)
+
         setVisitedParksCount(visitedParkCodes.size);
         setBucketListCount(bucketListParkCodes.size);
       } else {
@@ -89,14 +99,11 @@ export default function VisitsPage() {
         setBucketListCount(0);
       }
 
-      // Transform parks with status
-      const transformedParks: ParkWithStatus[] = parksData.map(park => {
-        let status: 'visited' | 'notVisited' | 'bucketList' = 'notVisited';
-        if (visitedParkCodes.has(park.park_code)) {
-          status = 'visited';
-        } else if (bucketListParkCodes.has(park.park_code)) {
-          status = 'bucketList';
-        }
+      const transformedParks: ParkWithStatus[] = parksData.map((park) => {
+        let status: "visited" | "notVisited" | "bucketList" = "notVisited";
+        if (visitedParkCodes.has(park.park_code)) status = "visited";
+        else if (bucketListParkCodes.has(park.park_code))
+          status = "bucketList";
         return {
           park_code: park.park_code,
           name: park.name,
@@ -109,14 +116,14 @@ export default function VisitsPage() {
       setParks(transformedParks);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching parks:', error);
+      console.error("Error fetching parks:", error);
     } finally {
       setIsLoadingParks(false);
     }
   };
 
   const handleMarkVisited = (parkCode: string) => {
-    const park = parks.find(p => p.park_code === parkCode);
+    const park = parks.find((p) => p.park_code === parkCode);
     if (park) {
       setPendingParkCode(parkCode);
       setPendingParkName(park.name);
@@ -125,91 +132,39 @@ export default function VisitsPage() {
   };
 
   const handleConfirmVisitDate = async (date: Date) => {
-    if (!pendingParkCode && !isBatchMarkingVisited) return;
+    if (!pendingParkCode) return;
 
-    // Handle batch marking all bucket list parks as visited
-    if (isBatchMarkingVisited) {
-      try {
-        // Mark all bucket list parks as visited with the same date
-        await Promise.all(
-          batchParkCodes.map(parkCode =>
-            fetch('/api/visits', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                park_code: parkCode,
-                is_bucket_list: false,
-                visited_date: date.toISOString()
-              }),
-            })
-          )
-        );
-
-        // Update all parks in local state
-        setParks(prevParks =>
-          prevParks.map(p =>
-            batchParkCodes.includes(p.park_code)
-              ? { ...p, status: 'visited' as const, visitedDate: date.toISOString() }
-              : p
-          )
-        );
-
-        // Update counts
-        setVisitedParksCount(prev => prev + batchParkCodes.length);
-        setBucketListCount(prev => Math.max(0, prev - batchParkCodes.length));
-      } catch (error) {
-        console.error('Error marking parks as visited:', error);
-      } finally {
-        setIsBatchMarkingVisited(false);
-        setShowVisitDateDialog(false);
-        setPendingParkName("");
-        setBatchParkCodes([]);
-      }
-      return;
-    }
-
-    // Handle single park visit
-    const park = parks.find(p => p.park_code === pendingParkCode);
-    const wasAlreadyVisited = park?.status === 'visited';
-    const wasBucketList = park?.status === 'bucketList';
+    const park = parks.find((p) => p.park_code === pendingParkCode);
+    const wasAlreadyVisited = park?.status === "visited";
+    const wasBucketList = park?.status === "bucketList";
 
     try {
-      const response = await fetch('/api/visits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await fetch("/api/visits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           park_code: pendingParkCode,
           is_bucket_list: false,
-          visited_date: date.toISOString()
+          visited_date: date.toISOString(),
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to mark park as visited');
-      }
+      if (!response.ok) throw new Error("Failed to mark park as visited");
 
-      // Update the park status in the local state
-      setParks(prevParks =>
-        prevParks.map(p =>
+      setParks((prev) =>
+        prev.map((p) =>
           p.park_code === pendingParkCode
-            ? { ...p, status: 'visited' as const, visitedDate: date.toISOString() }
+            ? { ...p, status: "visited" as const, visitedDate: date.toISOString() }
             : p
         )
       );
 
-      // Update counts
       if (!wasAlreadyVisited) {
-        setVisitedParksCount(prev => prev + 1);
-        if (wasBucketList) {
-          setBucketListCount(prev => Math.max(0, prev - 1));
-        }
+        setVisitedParksCount((prev) => prev + 1);
+        if (wasBucketList) setBucketListCount((prev) => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error('Error marking park as visited:', error);
+      console.error("Error marking park as visited:", error);
     } finally {
       setPendingParkCode(null);
       setPendingParkName("");
@@ -217,360 +172,468 @@ export default function VisitsPage() {
     }
   };
 
-  const handleAddAllToBucketList = async () => {
-    if (unvisitedParks.length === 0) return;
-
-    setIsBatchAddingToBucketList(true);
-    const unvisitedParkCodes = unvisitedParks.map(p => p.park_code);
-
+  const handleAddToBucketList = async (parkCode: string) => {
     try {
-      // Add all unvisited parks to bucket list
-      await Promise.all(
-        unvisitedParkCodes.map(parkCode =>
-          fetch('/api/visits', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              park_code: parkCode,
-              is_bucket_list: true,
-            }),
-          })
-        )
-      );
+      const response = await fetch("/api/visits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ park_code: parkCode, is_bucket_list: true }),
+      });
 
-      // Update all parks in local state
-      setParks(prevParks =>
-        prevParks.map(p =>
-          unvisitedParkCodes.includes(p.park_code)
-            ? { ...p, status: 'bucketList' as const }
+      if (!response.ok) throw new Error("Failed to add to bucket list");
+
+      setParks((prev) =>
+        prev.map((p) =>
+          p.park_code === parkCode
+            ? { ...p, status: "bucketList" as const }
             : p
         )
       );
-
-      // Update counts
-      setBucketListCount(prev => prev + unvisitedParkCodes.length);
+      setBucketListCount((prev) => prev + 1);
     } catch (error) {
-      console.error('Error adding parks to bucket list:', error);
-    } finally {
-      setIsBatchAddingToBucketList(false);
+      console.error("Error adding to bucket list:", error);
     }
-  };
-
-  const handleMarkAllBucketListAsVisited = () => {
-    if (bucketListParks.length === 0) return;
-    const parkCodes = bucketListParks.map(p => p.park_code);
-    setBatchParkCodes(parkCodes);
-    setIsBatchMarkingVisited(true);
-    setPendingParkName(`${parkCodes.length} parks`);
-    setShowVisitDateDialog(true);
   };
 
   const handleDeleteVisit = async (parkCode: string) => {
-    const park = parks.find(p => p.park_code === parkCode);
-    const wasVisited = park?.status === 'visited';
-    const wasBucketList = park?.status === 'bucketList';
+    const park = parks.find((p) => p.park_code === parkCode);
+    const wasVisited = park?.status === "visited";
+    const wasBucketList = park?.status === "bucketList";
 
     try {
       const response = await fetch(`/api/visits?park_code=${parkCode}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to remove visit');
-      }
+      if (!response.ok) throw new Error("Failed to remove visit");
 
-      // Update the park status in the local state
-      setParks(prevParks =>
-        prevParks.map(p =>
+      setParks((prev) =>
+        prev.map((p) =>
           p.park_code === parkCode
-            ? { ...p, status: 'notVisited' as const, visitedDate: null }
+            ? { ...p, status: "notVisited" as const, visitedDate: null }
             : p
         )
       );
 
-      // Update counts
-      if (wasVisited) {
-        setVisitedParksCount(prev => Math.max(0, prev - 1));
-      }
-      if (wasBucketList) {
-        setBucketListCount(prev => Math.max(0, prev - 1));
-      }
+      if (wasVisited) setVisitedParksCount((prev) => Math.max(0, prev - 1));
+      if (wasBucketList) setBucketListCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Error removing visit:', error);
+      console.error("Error removing visit:", error);
     }
   };
 
-  // Get parks by status
-  const visitedParks = parks.filter(p => p.status === 'visited').sort((a, b) => {
-    if (!a.visitedDate) return 1;
-    if (!b.visitedDate) return -1;
-    return new Date(b.visitedDate).getTime() - new Date(a.visitedDate).getTime();
-  });
-  const bucketListParks = parks.filter(p => p.status === 'bucketList').sort((a, b) => a.name.localeCompare(b.name));
-  const unvisitedParks = parks.filter(p => p.status === 'notVisited').sort((a, b) => a.name.localeCompare(b.name));
+  const visitedParks = parks
+    .filter((p) => p.status === "visited")
+    .sort((a, b) => {
+      if (!a.visitedDate) return 1;
+      if (!b.visitedDate) return -1;
+      return new Date(b.visitedDate).getTime() - new Date(a.visitedDate).getTime();
+    });
 
-  // Get title
-  const title = user?.firstName ? `${user.firstName}'s Visits` : 'My Visits';
+  const bucketListParks = parks
+    .filter((p) => p.status === "bucketList")
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const unvisitedParks = parks
+    .filter((p) => p.status === "notVisited")
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const q = searchQuery.toLowerCase();
+  const filteredVisited = visitedParks.filter((p) =>
+    p.name.toLowerCase().includes(q)
+  );
+  const filteredBucketList = bucketListParks.filter((p) =>
+    p.name.toLowerCase().includes(q)
+  );
+  const filteredUnvisited = unvisitedParks.filter((p) =>
+    p.name.toLowerCase().includes(q)
+  );
+
+  const handleTabChange = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    setSearchQuery("");
+  };
+
+  const tabs: { key: ActiveTab; label: string; count: number }[] = [
+    { key: "visited", label: "Visited", count: visitedParksCount },
+    { key: "bucketList", label: "Bucket List", count: bucketListCount },
+    {
+      key: "explore",
+      label: "Explore",
+      count: totalParksCount - visitedParksCount,
+    },
+  ];
+
+  const profileImageUrl = user?.imageUrl || "";
+  const fullName = user?.firstName
+    ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
+    : "My";
 
   return (
-    <div className="flex flex-col">
-      {/* Navigation Bar */}
+    <div className="flex flex-col min-h-screen bg-gray-50">
       <NavBar
         visitedParksCount={visitedParksCount}
         totalParksCount={totalParksCount}
       />
 
-      {/* Header Section */}
-      <div className="min-w-screen bg-gradient-to-br from-emerald-700 to-emerald-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-">
-        {/* Title */}
-          <h1 className="text-3xl font-bold text-white mb-4">{title}</h1>
+      {/* Profile Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            {/* Avatar */}
+            {profileImageUrl ? (
+              <Image
+                src={profileImageUrl}
+                alt={fullName}
+                width={64}
+                height={64}
+                className="w-16 h-16 rounded-full border-3 border-emerald-500 object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-emerald-100 border-3 border-emerald-500 shrink-0" />
+            )}
 
-          {/* Progress Card and Counters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {/* Name + Stats */}
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-gray-900">
+                {fullName}&apos;s Park Journal
+              </h1>
+              {loading ? (
+                <div className="flex gap-4 mt-1">
+                  <Skeleton className="h-4 w-20 rounded" />
+                  <Skeleton className="h-4 w-20 rounded" />
+                  <Skeleton className="h-4 w-20 rounded" />
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1 text-sm text-gray-500">
+                  <span>
+                    <span className="font-semibold text-gray-900">
+                      {visitedParksCount}
+                    </span>{" "}
+                    visited
+                  </span>
+                  <span>
+                    <span className="font-semibold text-gray-900">
+                      {bucketListCount}
+                    </span>{" "}
+                    on bucket list
+                  </span>
+                  <span>
+                    <span className="font-semibold text-gray-900">
+                      {totalParksCount - visitedParksCount}
+                    </span>{" "}
+                    to explore
+                  </span>
+                </div>
+              )}
+            </div>
+
             {/* Progress Card */}
-            <div className="md:col-span-2">
+            <div className="w-full sm:w-64 shrink-0">
               <ProgressCard
                 visitedCount={visitedParksCount}
                 totalCount={totalParksCount}
                 loading={loading}
               />
             </div>
-
-            {/* Counters */}
-            <div className="flex flex-row gap-4 md:col-span-2">
-              {/* Parks Visited Counter */}
-              <Card className="flex-1 bg-green-50 border-green-200 border-2">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold text-center">
-                    Parks Visited
-                  </CardTitle>
-                </CardHeader>
-
-                <CardContent className="flex justify-center">
-                  {loading ? (
-                    <Skeleton className="bg-green-200/40 h-[3.75rem] w-24 rounded-md" />
-                  ) : (
-                    <div className="text-6xl font-bold text-center text-green-600">
-                      {visitedParksCount}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Bucket List Counter */}
-              <Card className="flex-1 bg-amber-50 border-amber-200 border-2">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold text-center">
-                    On Bucket List
-                  </CardTitle>
-                </CardHeader>
-
-                <CardContent className="flex justify-center">
-                  {loading ? (
-                    <Skeleton className="bg-amber-200/40 h-[3.75rem] w-24 rounded-md" />
-                  ) : (
-                    <div className="text-6xl font-bold text-center text-amber-500">
-                      {bucketListCount}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Parks Unvisited Counter */}
-              <Card className="flex-1 bg-red-50 border-red-200 border-2">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold text-center">
-                    Parks Unvisited
-                  </CardTitle>
-                </CardHeader>
-
-                <CardContent className="flex justify-center">
-                  {loading ? (
-                    <Skeleton className="bg-red-200/40 h-[3.75rem] w-24 rounded-md" />
-                  ) : (
-                    <div className="text-6xl font-bold text-center text-red-400">
-                      {totalParksCount - visitedParksCount}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Body */}
-      <div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-">
-
-          {/* Loading State */}
-          {isLoadingParks ? (
-            <div className="flex items-center justify-center">
-              <Skeleton className="bg-gray-200/40 h-screen w-full rounded-md" />
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {/* Visited Parks Section */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-xl">Visited Parks ({visitedParks.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {visitedParks.length === 0 ? (
-                    <p className="text-gray-500 py-4">You haven&apos;t visited any parks yet.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700">Park Name</th>
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700">Visit Date</th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {visitedParks.map((park) => (
-                            <tr key={park.park_code} className="border-b hover:bg-gray-50">
-                              <td className="py-3 px-4 font-medium">{park.name}</td>
-                              <td className="py-3 px-4 text-gray-600">
-                                {park.visitedDate
-                                  ? new Date(park.visitedDate).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'long',
-                                      day: 'numeric'
-                                    })
-                                  : 'No date set'}
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <button
-                                  onClick={() => handleDeleteVisit(park.park_code)}
-                                  className="text-gray-400 hover:text-red-600 transition-colors"
-                                  aria-label={`Remove ${park.name} from visited parks`}
-                                >
-                                  <X className="h-5 w-5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Bucket List Parks Section */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-xl">Bucket List ({bucketListParks.length})</CardTitle>
-                  {bucketListParks.length > 0 && (
-                    <Button
-                      onClick={handleMarkAllBucketListAsVisited}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      size="sm"
-                      disabled={isBatchMarkingVisited}
-                    >
-                      Mark All as Visited
-                    </Button>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  {bucketListParks.length === 0 ? (
-                    <p className="text-gray-500 py-4">Your bucket list is empty.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700">Park Name</th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {bucketListParks.map((park) => (
-                            <tr key={park.park_code} className="border-b hover:bg-gray-50">
-                              <td className="py-3 px-4 font-medium">{park.name}</td>
-                              <td className="py-3 px-4 text-right">
-                                <button
-                                  onClick={() => handleDeleteVisit(park.park_code)}
-                                  className="text-gray-400 hover:text-red-600 transition-colors"
-                                  aria-label={`Remove ${park.name} from bucket list`}
-                                >
-                                  <X className="h-5 w-5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Unvisited Parks Section */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-xl">Unvisited Parks ({unvisitedParks.length})</CardTitle>
-                  {unvisitedParks.length > 0 && (
-                    <Button
-                      onClick={handleAddAllToBucketList}
-                      className="bg-amber-600 hover:bg-amber-700 text-white"
-                      size="sm"
-                      disabled={isBatchAddingToBucketList}
-                    >
-                      {isBatchAddingToBucketList ? 'Adding...' : 'Add All to Bucket List'}
-                    </Button>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  {unvisitedParks.length === 0 ? (
-                    <p className="text-gray-500 py-4">Congratulations! You&apos;ve visited all parks!</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-3 px-4 font-semibold text-gray-700">Park Name</th>
-                            <th className="text-right py-3 px-4 font-semibold text-gray-700">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {unvisitedParks.map((park) => (
-                            <tr key={park.park_code} className="border-b hover:bg-gray-50">
-                              <td className="py-3 px-4 font-medium">{park.name}</td>
-                              <td className="py-3 px-4 text-right">
-                                <Button
-                                  onClick={() => handleMarkVisited(park.park_code)}
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                  size="sm"
-                                >
-                                  Mark as Visited
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+      {/* Tab Bar */}
+      <div className="bg-white border-b border-gray-200 sticky top-16 z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => handleTabChange(tab.key)}
+                className={`flex items-center gap-2 px-5 py-4 text-sm font-semibold border-b-2 transition-colors ${
+                  activeTab === tab.key
+                    ? "border-emerald-600 text-emerald-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                {tab.label}
+                {!loading && (
+                  <span
+                    className={`text-xs rounded-full px-2 py-0.5 ${
+                      activeTab === tab.key
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Visit Date Dialog */}
+      {/* Content */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+
+        {/* Search */}
+        <div className="relative mb-5">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none" />
+          <Input
+            placeholder={`Search ${activeTab === "explore" ? "parks to explore" : activeTab === "bucketList" ? "bucket list" : "visited parks"}…`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        {/* Loading skeletons */}
+        {isLoadingParks ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          <>
+            {/* Visited Tab */}
+            {activeTab === "visited" && (
+              <>
+                {filteredVisited.length === 0 ? (
+                  <EmptyState
+                    icon={<CheckCircle2 className="h-10 w-10 text-gray-300" />}
+                    title={searchQuery ? "No parks match your search" : "No visits yet"}
+                    subtitle={
+                      searchQuery
+                        ? "Try a different search term"
+                        : "Start exploring and log your first park visit!"
+                    }
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredVisited.map((park) => (
+                      <VisitedCard
+                        key={park.park_code}
+                        park={park}
+                        onDelete={handleDeleteVisit}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Bucket List Tab */}
+            {activeTab === "bucketList" && (
+              <>
+                {filteredBucketList.length === 0 ? (
+                  <EmptyState
+                    icon={<Bookmark className="h-10 w-10 text-gray-300" />}
+                    title={searchQuery ? "No parks match your search" : "Bucket list is empty"}
+                    subtitle={
+                      searchQuery
+                        ? "Try a different search term"
+                        : "Head to Explore to add parks you want to visit!"
+                    }
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredBucketList.map((park) => (
+                      <BucketListCard
+                        key={park.park_code}
+                        park={park}
+                        onMarkVisited={handleMarkVisited}
+                        onDelete={handleDeleteVisit}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Explore Tab */}
+            {activeTab === "explore" && (
+              <>
+                {filteredUnvisited.length === 0 ? (
+                  <EmptyState
+                    icon={<MapPin className="h-10 w-10 text-gray-300" />}
+                    title={
+                      searchQuery
+                        ? "No parks match your search"
+                        : "You've explored every park!"
+                    }
+                    subtitle={
+                      searchQuery
+                        ? "Try a different search term"
+                        : "Incredible — you've visited all national parks. Legendary!"
+                    }
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredUnvisited.map((park) => (
+                      <ExploreCard
+                        key={park.park_code}
+                        park={park}
+                        onAddToBucketList={handleAddToBucketList}
+                        onMarkVisited={handleMarkVisited}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </div>
+
       <VisitDateDialog
         open={showVisitDateDialog}
         onOpenChange={setShowVisitDateDialog}
         parkName={pendingParkName}
         onConfirm={handleConfirmVisitDate}
       />
+    </div>
+  );
+}
+
+/* ─── Sub-components ─────────────────────────────────────────────────────── */
+
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="mb-4">{icon}</div>
+      <p className="text-base font-semibold text-gray-600">{title}</p>
+      <p className="text-sm text-gray-400 mt-1 max-w-xs">{subtitle}</p>
+    </div>
+  );
+}
+
+function VisitedCard({
+  park,
+  onDelete,
+}: {
+  park: ParkWithStatus;
+  onDelete: (code: string) => void;
+}) {
+  const dateLabel = park.visitedDate
+    ? new Date(park.visitedDate).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : null;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-3 min-w-0">
+          <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+          <p className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+            {park.name}
+          </p>
+        </div>
+        <button
+          onClick={() => onDelete(park.park_code)}
+          className="shrink-0 p-1 text-gray-300 hover:text-red-500 transition-colors rounded"
+          aria-label={`Remove ${park.name}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      {dateLabel && (
+        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          <CalendarDays className="h-3.5 w-3.5" />
+          {dateLabel}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BucketListCard({
+  park,
+  onMarkVisited,
+  onDelete,
+}: {
+  park: ParkWithStatus;
+  onMarkVisited: (code: string) => void;
+  onDelete: (code: string) => void;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-amber-200 shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-3 min-w-0">
+          <Bookmark className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+          <p className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+            {park.name}
+          </p>
+        </div>
+        <button
+          onClick={() => onDelete(park.park_code)}
+          className="shrink-0 p-1 text-gray-300 hover:text-red-500 transition-colors rounded"
+          aria-label={`Remove ${park.name} from bucket list`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      <Button
+        size="sm"
+        onClick={() => onMarkVisited(park.park_code)}
+        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8"
+      >
+        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+        Mark as Visited
+      </Button>
+    </div>
+  );
+}
+
+function ExploreCard({
+  park,
+  onAddToBucketList,
+  onMarkVisited,
+}: {
+  park: ParkWithStatus;
+  onAddToBucketList: (code: string) => void;
+  onMarkVisited: (code: string) => void;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col gap-3">
+      <div className="flex items-start gap-3 min-w-0">
+        <MapPin className="h-5 w-5 text-gray-400 shrink-0 mt-0.5" />
+        <p className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+          {park.name}
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onAddToBucketList(park.park_code)}
+          className="flex-1 text-xs h-8 border-amber-300 text-amber-600 hover:bg-amber-50"
+        >
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Bucket List
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => onMarkVisited(park.park_code)}
+          className="flex-1 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+        >
+          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+          Visited
+        </Button>
+      </div>
     </div>
   );
 }
