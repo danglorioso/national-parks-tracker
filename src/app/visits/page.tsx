@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
+import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import ProgressCard from "@/components/ProgressCard";
 import VisitDateDialog from "@/components/VisitDateDialog";
@@ -535,9 +536,9 @@ function VisitedCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-3 min-w-0">
           <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
-          <p className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+          <Link href={`/parks/${park.park_code}`} className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 hover:text-emerald-600 transition-colors">
             {park.name}
-          </p>
+          </Link>
         </div>
         <button
           onClick={() => onDelete(park.park_code)}
@@ -572,9 +573,9 @@ function BucketListCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-3 min-w-0">
           <Bookmark className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-          <p className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+          <Link href={`/parks/${park.park_code}`} className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 hover:text-emerald-600 transition-colors">
             {park.name}
-          </p>
+          </Link>
         </div>
         <button
           onClick={() => onDelete(park.park_code)}
@@ -610,9 +611,9 @@ function ExploreCard({
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col gap-3">
       <div className="flex items-start gap-3 min-w-0">
         <MapPin className="h-5 w-5 text-gray-400 shrink-0 mt-0.5" />
-        <p className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2">
+        <Link href={`/parks/${park.park_code}`} className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 hover:text-emerald-600 transition-colors">
           {park.name}
-        </p>
+        </Link>
       </div>
 
       <div className="flex gap-2">
