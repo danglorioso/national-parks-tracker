@@ -289,11 +289,11 @@ export default function ParkPage({
         {/* Breadcrumb */}
         <div className="absolute top-4 left-4">
           <Link
-            href="/visits"
+            href={isSignedIn ? "/visits" : "/parks"}
             className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
-            My Visits
+            {isSignedIn ? "My Visits" : "Parks"}
           </Link>
         </div>
 
@@ -689,10 +689,10 @@ function NotFound() {
       <Mountain className="h-12 w-12 text-gray-300" />
       <p className="text-lg font-semibold text-gray-600">Park not found</p>
       <p className="text-sm text-gray-400">We couldn&apos;t load data for this park.</p>
-      <Link href="/visits">
+      <Link href="/parks">
         <Button variant="outline" size="sm">
           <ChevronLeft className="h-4 w-4 mr-1" />
-          Back to My Visits
+          Back to Parks
         </Button>
       </Link>
     </div>

@@ -8,6 +8,11 @@ export default clerkMiddleware(async (auth, req) => {
   if (req.nextUrl.pathname === '/') {
     return NextResponse.next();
   }
+
+  // Always allow parks index and detail pages (public browsing)
+  if (req.nextUrl.pathname === '/parks' || req.nextUrl.pathname.startsWith('/parks/')) {
+    return NextResponse.next();
+  }
   
   // Always allow API routes (they handle their own auth)
   if (req.nextUrl.pathname.startsWith('/api/')) {
