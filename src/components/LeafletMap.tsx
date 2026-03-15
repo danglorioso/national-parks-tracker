@@ -105,7 +105,12 @@ export default function LeafletMap({
         >
           <Popup>
             <div className="min-w-[200px]">
-              <div className="font-semibold">{park.name}</div>
+              <a
+                href={`/parks/${park.park_code}`}
+                className="font-semibold text-green-700 hover:text-green-900 hover:underline"
+              >
+                {park.name}
+              </a>
               {onMarkVisited ? (
                 // Signed-in view: show visit status
                 park.status === 'visited' && park.visitedDate ? (
