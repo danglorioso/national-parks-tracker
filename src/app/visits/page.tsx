@@ -19,6 +19,7 @@ import {
   Search,
   Plus,
 } from "lucide-react";
+import { ALL_BADGES, TIER_CONFIG } from "@/lib/badges";
 
 interface ParkFromDB {
   park_code: string;
@@ -51,12 +52,29 @@ export default function VisitsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>("visited");
   const [searchQuery, setSearchQuery] = useState("");
+  const [earnedBadges, setEarnedBadges] = useState<Record<string, string>>({});
+  const [badgesLoading, setBadgesLoading] = useState(true);
 
   useEffect(() => {
     if (isSignedIn) {
       fetchParksAndVisits();
+      fetchBadges();
     }
   }, [isSignedIn]);
+
+  const fetchBadges = async () => {
+    try {
+      const res = await fetch("/api/badges");
+      if (res.ok) {
+        const data = await res.json();
+        setEarnedBadges(data.earned ?? {});
+      }
+    } catch {
+      // non-blocking
+    } finally {
+      setBadgesLoading(false);
+    }
+  };
 
   const fetchParksAndVisits = async () => {
     try {
@@ -484,6 +502,69 @@ export default function VisitsPage() {
             )}
           </>
         )}
+      </div>
+
+      {/* Achievements */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 w-full">
+        <div className="border-t border-gray-200 pt-8">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Achievements</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            {badgesLoading ? "\u00a0" : `${Object.keys(earnedBadges).length} of ${ALL_BADGES.length} earned`}
+          </p>
+
+          {badgesLoading ? (
+            <div className="flex flex-wrap gap-5">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-2">
+                  <Skeleton className="w-16 h-16 rounded-full" />
+                  <Skeleton className="h-3 w-16 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-x-6 gap-y-7">
+              {ALL_BADGES.map((badge) => {
+                const isEarned = badge.id in earnedBadges;
+                const tier = TIER_CONFIG[badge.tier];
+                return (
+                  <div key={badge.id} className="flex flex-col items-center gap-2 w-16">
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-md ring-2 transition-transform hover:scale-110"
+                      style={
+                        isEarned
+                          ? {
+                              background: tier.cssGradient,
+                              boxShadow: `0 4px 14px -2px color-mix(in srgb, currentColor 30%, transparent)`,
+                              ringColor: 'rgba(255,255,255,0.3)',
+                            }
+                          : {
+                              background: '#e5e7eb',
+                              boxShadow: 'none',
+                            }
+                      }
+                      title={`${badge.name} — ${badge.description}`}
+                    >
+                      <span
+                        className={isEarned ? '' : 'grayscale opacity-40'}
+                        style={{ filter: isEarned ? 'none' : 'grayscale(1) opacity(0.4)' }}
+                      >
+                        {badge.emoji}
+                      </span>
+                    </div>
+                    <span className={`text-xs text-center leading-tight font-medium ${isEarned ? 'text-gray-800' : 'text-gray-400'}`}>
+                      {badge.name}
+                    </span>
+                    {isEarned && (
+                      <span className={`text-[10px] font-semibold uppercase tracking-wide ${tier.labelColor}`}>
+                        {tier.label}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <VisitDateDialog

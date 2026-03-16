@@ -23,8 +23,17 @@ export const visits = pgTable('visits', {
   updated_at: timestamp('updated_at').defaultNow(),
 });
 
+export const userBadges = pgTable('user_badges', {
+  id: serial('id').primaryKey(),
+  clerk_user_id: varchar('clerk_user_id', { length: 255 }).notNull(),
+  badge_id: varchar('badge_id', { length: 100 }).notNull(),
+  earned_at: timestamp('earned_at').defaultNow().notNull(),
+});
+
 export type Park = typeof parks.$inferSelect;
 export type NewPark = typeof parks.$inferInsert;
 export type Visit = typeof visits.$inferSelect;
 export type NewVisit = typeof visits.$inferInsert;
+export type UserBadge = typeof userBadges.$inferSelect;
+export type NewUserBadge = typeof userBadges.$inferInsert;
 
