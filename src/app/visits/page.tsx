@@ -534,12 +534,10 @@ export default function VisitsPage() {
                         isEarned
                           ? {
                               background: tier.cssGradient,
-                              boxShadow: `0 4px 14px -2px color-mix(in srgb, currentColor 30%, transparent)`,
-                              ringColor: 'rgba(255,255,255,0.3)',
+                              boxShadow: `0 4px 14px -2px rgba(0,0,0,0.25)`,
                             }
                           : {
                               background: '#e5e7eb',
-                              boxShadow: 'none',
                             }
                       }
                       title={`${badge.name} — ${badge.description}`}
