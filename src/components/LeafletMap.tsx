@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { CheckCircle2, Bookmark, BookmarkX } from 'lucide-react';
+import { CheckCircle2, Bookmark, BookmarkX, Pencil } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -145,7 +145,7 @@ export default function LeafletMap({
                     onEditVisit && (
                       <button
                         onClick={() => onEditVisit(park.park_code)}
-                        className="w-full px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                        className="w-full px-3 py-1.5 border border-gray-300 text-gray-600 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                       >
                         <CheckCircle2 className="w-4 h-4" />
                         Edit Visit
