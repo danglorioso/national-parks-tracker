@@ -199,9 +199,6 @@ export default function ExplorePage() {
       .then(r => r.json())
       .then((data: FeaturedPark[]) => {
         setFeatured(data);
-        // Pick 12 random parks for carousel
-        const shuffled = [...data].sort(() => Math.random() - 0.5).slice(0, 12);
-        setCarouselParks(shuffled);
       })
       .finally(() => setCarouselLoading(false));
   }, []);
@@ -216,6 +213,21 @@ export default function ExplorePage() {
       .catch(() => setActivityParkCodes(null))
       .finally(() => setActivityLoading(false));
   }, [activityFilter]);
+
+  // Build carousel parks: only NPS entries whose park_code matches a DB park (accounting for aliases)
+  useEffect(() => {
+    if (parks.length === 0 || featured.length === 0) return;
+    const dbCodes = new Set(parks.map(p => p.park_code));
+    // Reverse alias map: NPS code → DB codes (e.g. seki → [sequ, king])
+    const REVERSE_ALIASES: Record<string, string[]> = { seki: ['sequ', 'king'] };
+    const inDb = featured.filter(f => {
+      if (dbCodes.has(f.park_code)) return true;
+      // If this NPS code is an alias target, check if any of its DB codes are present
+      return (REVERSE_ALIASES[f.park_code] ?? []).some(c => dbCodes.has(c));
+    });
+    const shuffled = [...inDb].sort(() => Math.random() - 0.5).slice(0, 12);
+    setCarouselParks(shuffled);
+  }, [parks, featured]);
 
   // Build image map from featured (NPS codes → image URL)
   const imageMap = new Map(featured.map(f => [f.park_code, f.images[0]?.url]));
