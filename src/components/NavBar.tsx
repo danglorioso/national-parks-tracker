@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Search, UserRound } from "lucide-react";
+import { Bell, Search, UserRound, MapPin } from "lucide-react";
 import Logo from "./Logo";
 import Link from "next/link";
 import AccountDropdown from "./AccountDropdown";
@@ -14,11 +14,22 @@ interface NavBarProps {
     totalParksCount: number;
 }
 
-interface SearchResult {
+interface UserResult {
     username: string;
     full_name: string | null;
     avatar_url: string | null;
     is_self: boolean;
+}
+
+interface ParkResult {
+    park_code: string;
+    name: string;
+    states: string;
+}
+
+interface SearchResults {
+    users: UserResult[];
+    parks: ParkResult[];
 }
 
 export default function NavBar({ visitedParksCount, totalParksCount }: NavBarProps) {
@@ -31,17 +42,21 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
     const [username, setUsername] = useState<string | null>(null);
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    const [searchResults, setSearchResults] = useState<SearchResults>({ users: [], parks: [] });
     const [searchOpen, setSearchOpen] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
     const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const runSearch = useCallback((q: string) => {
-        if (!q.trim()) { setSearchResults([]); setSearchOpen(false); return; }
-        fetch(`/api/users/search?q=${encodeURIComponent(q)}`)
-            .then(r => r.ok ? r.json() : [])
-            .then((data: SearchResult[]) => { setSearchResults(data); setSearchOpen(data.length > 0); })
-            .catch(() => {});
+        if (!q.trim()) { setSearchResults({ users: [], parks: [] }); setSearchOpen(false); return; }
+        const encoded = encodeURIComponent(q);
+        Promise.all([
+            fetch(`/api/users/search?q=${encoded}`).then(r => r.ok ? r.json() : []),
+            fetch(`/api/parks/search?q=${encoded}`).then(r => r.ok ? r.json() : []),
+        ]).then(([users, parks]: [UserResult[], ParkResult[]]) => {
+            setSearchResults({ users, parks });
+            setSearchOpen(users.length > 0 || parks.length > 0);
+        }).catch(() => {});
     }, []);
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,11 +66,11 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
         searchTimer.current = setTimeout(() => runSearch(q), 250);
     };
 
-    const handleSearchSelect = (result: SearchResult) => {
+    const handleSelect = (href: string) => {
         setSearchQuery("");
-        setSearchResults([]);
+        setSearchResults({ users: [], parks: [] });
         setSearchOpen(false);
-        router.push(`/profile/${result.username}`);
+        router.push(href);
     };
 
     useEffect(() => {
@@ -148,44 +163,70 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                         </div>
                     </div>
 
+                    {/* Right Side */}
+                    <div className="flex items-center gap-3">
+
                     {/* Search */}
-                    <div ref={searchRef} className="relative hidden md:block w-56">
+                    <div ref={searchRef} className="relative hidden md:block w-72">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={handleSearchChange}
-                            onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
-                            placeholder="Find users…"
+                            onFocus={() => { if (searchResults.users.length > 0 || searchResults.parks.length > 0) setSearchOpen(true); }}
+                            placeholder="Search parks or users…"
                             className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-100 border border-transparent rounded-lg outline-none focus:bg-white focus:border-gray-300 transition-colors"
                         />
-                        {searchOpen && searchResults.length > 0 && (
-                            <div className="absolute top-full mt-1.5 left-0 w-72 bg-white rounded-xl border border-gray-200 shadow-lg z-50 overflow-hidden">
-                                {searchResults.map(result => (
-                                    <button
-                                        key={result.username}
-                                        onClick={() => handleSearchSelect(result)}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
-                                    >
-                                        {result.avatar_url ? (
-                                            <img src={result.avatar_url} alt={result.username} className="w-8 h-8 rounded-full object-cover shrink-0" />
-                                        ) : (
-                                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                                                <UserRound className="w-4 h-4 text-emerald-600" />
-                                            </div>
-                                        )}
-                                        <div className="min-w-0">
-                                            {result.full_name && <p className="text-sm font-medium text-gray-900 truncate">{result.full_name}</p>}
-                                            <p className="text-xs text-gray-500 truncate">@{result.username}{result.is_self ? " (you)" : ""}</p>
-                                        </div>
-                                    </button>
-                                ))}
+                        {searchOpen && (
+                            <div className="absolute top-full mt-1.5 right-0 w-80 bg-white rounded-xl border border-gray-200 shadow-lg z-50 overflow-hidden">
+                                {searchResults.parks.length > 0 && (
+                                    <>
+                                        <p className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Parks</p>
+                                        {searchResults.parks.map(park => (
+                                            <button
+                                                key={park.park_code}
+                                                onClick={() => handleSelect(`/parks/${park.park_code}`)}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                                            >
+                                                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                                                    <MapPin className="w-4 h-4 text-emerald-600" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">{park.name}</p>
+                                                    <p className="text-xs text-gray-400 truncate">{park.states}</p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </>
+                                )}
+                                {searchResults.users.length > 0 && (
+                                    <>
+                                        <p className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Users</p>
+                                        {searchResults.users.map(user => (
+                                            <button
+                                                key={user.username}
+                                                onClick={() => handleSelect(`/profile/${user.username}`)}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                                            >
+                                                {user.avatar_url ? (
+                                                    <img src={user.avatar_url} alt={user.username} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                                                        <UserRound className="w-4 h-4 text-gray-500" />
+                                                    </div>
+                                                )}
+                                                <div className="min-w-0">
+                                                    {user.full_name && <p className="text-sm font-medium text-gray-900 truncate">{user.full_name}{user.is_self ? " (you)" : ""}</p>}
+                                                    <p className="text-xs text-gray-500 truncate">@{user.username}</p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </>
+                                )}
+                                <div className="h-2" />
                             </div>
                         )}
                     </div>
-
-                    {/* Right Side */}
-                    <div className="flex items-center space-x-4">
 
                         {/* Notification Bell */}
                         <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition hover:cursor-pointer">
