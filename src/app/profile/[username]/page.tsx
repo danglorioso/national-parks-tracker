@@ -288,7 +288,7 @@ export default function ProfilePage() {
   if (!isLoaded || profileLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-gray-50">
-        <Nav visitedParksCount={0} totalParksCount={0} />
+        <Nav />
         <div className="max-w-6xl mx-auto w-full px-4 py-8 space-y-4">
           <Skeleton className="h-32 w-full rounded-xl bg-gray-200" />
           <Skeleton className="h-10 w-72 rounded-lg bg-gray-200" />
@@ -308,7 +308,7 @@ export default function ProfilePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <Nav visitedParksCount={isOwn ? visitedParksCount : 0} totalParksCount={isOwn ? totalParksCount : 0} />
+      <Nav />
 
       {/* ── Profile Header ── */}
       <div className="bg-white border-b border-gray-200">

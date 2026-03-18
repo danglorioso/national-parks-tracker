@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
-import { userProfiles } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { userProfiles, visits, parks } from '@/lib/db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 
 export async function GET() {
   const { userId } = await auth();
@@ -18,7 +18,18 @@ export async function GET() {
     return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
   }
 
-  return NextResponse.json(profile[0]);
+  const [visitedCountRow, totalParksCountRow] = await Promise.all([
+    db.select({ count: sql<number>`cast(count(*) as int)` })
+      .from(visits)
+      .where(and(eq(visits.clerk_user_id, userId), eq(visits.is_bucket_list, false))),
+    db.select({ count: sql<number>`cast(count(*) as int)` }).from(parks),
+  ]);
+
+  return NextResponse.json({
+    ...profile[0],
+    visited_count: visitedCountRow[0]?.count ?? 0,
+    total_parks_count: totalParksCountRow[0]?.count ?? 0,
+  });
 }
 
 export async function POST(request: Request) {

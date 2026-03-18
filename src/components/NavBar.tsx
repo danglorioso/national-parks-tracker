@@ -9,11 +9,6 @@ import { useUser, useClerk } from "@clerk/nextjs";
 import { usePathname, useRouter } from "next/navigation";
 import { Skeleton } from "./ui/skeleton";
 
-interface NavBarProps {
-    visitedParksCount: number;
-    totalParksCount: number;
-}
-
 interface UserResult {
     username: string;
     full_name: string | null;
@@ -32,7 +27,7 @@ interface SearchResults {
     parks: ParkResult[];
 }
 
-export default function NavBar({ visitedParksCount, totalParksCount }: NavBarProps) {
+export default function NavBar() {
     const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
     const { user, isLoaded } = useUser();
     const { signOut } = useClerk();
@@ -40,6 +35,8 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
     const pathname = usePathname();
     const router = useRouter();
     const [username, setUsername] = useState<string | null>(null);
+    const [visitedParksCount, setVisitedParksCount] = useState(0);
+    const [totalParksCount, setTotalParksCount] = useState(0);
 
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<SearchResults>({ users: [], parks: [] });
@@ -77,7 +74,12 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
         if (!isLoaded || !user) return;
         fetch('/api/users/me')
             .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data?.username) setUsername(data.username); })
+            .then(data => {
+                if (!data) return;
+                if (data.username) setUsername(data.username);
+                if (data.visited_count != null) setVisitedParksCount(data.visited_count);
+                if (data.total_parks_count != null) setTotalParksCount(data.total_parks_count);
+            })
             .catch(() => {});
     }, [isLoaded, user]);
 
@@ -133,7 +135,7 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                             <Link
                                 href={username ? `/profile/${username}` : '/visits'}
                                 className={`px-4 py-2 rounded-lg font-medium transition ${
-                                    pathname.startsWith('/profile')
+                                    username && pathname === `/profile/${username}`
                                         ? 'font-semibold text-green-600 bg-green-50'
                                         : 'text-gray-600 hover:bg-gray-100'
                                 }`}
@@ -143,7 +145,7 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                             <Link
                                 href="/feed"
                                 className={`px-4 py-2 rounded-lg font-medium transition ${
-                                    pathname === '/feed'
+                                    pathname === '/feed' || (pathname.startsWith('/profile') && pathname !== `/profile/${username ?? ''}`)
                                         ? 'font-semibold text-green-600 bg-green-50'
                                         : 'text-gray-600 hover:bg-gray-100'
                                 }`}

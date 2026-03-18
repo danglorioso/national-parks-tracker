@@ -265,7 +265,7 @@ export default function Home() {
   if (isSignedIn) {
     return (
       <div className="flex flex-col h-screen">
-        <Nav visitedParksCount={visitedParksCount} totalParksCount={totalParksCount} />
+        <Nav />
 
         <div className="flex flex-1 flex-col md:flex-row min-h-0 overflow-hidden">
 
