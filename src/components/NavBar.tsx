@@ -82,10 +82,10 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                             >
                                 Map
                             </Link>
-                            <Link 
-                                href="/visits" 
+                            <Link
+                                href={username ? `/profile/${username}` : '/visits'}
                                 className={`px-4 py-2 rounded-lg font-medium transition ${
-                                    pathname === '/visits'
+                                    pathname.startsWith('/profile')
                                         ? 'font-semibold text-green-600 bg-green-50'
                                         : 'text-gray-600 hover:bg-gray-100'
                                 }`}
