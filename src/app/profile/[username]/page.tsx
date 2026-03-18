@@ -9,6 +9,7 @@ import ProgressCard from "@/components/ProgressCard";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
 import EditVisitDialog from "@/components/EditVisitDialog";
 import EditProfileDialog from "@/components/EditProfileDialog";
+import FollowListModal from "@/components/FollowListModal";
 import { ALL_BADGES, TIER_CONFIG, type BadgeDefinition } from "@/lib/badges";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
@@ -72,7 +73,7 @@ type OtherTab = "visits" | "badges";
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
-  const { isSignedIn, isLoaded } = useUser();
+  const { user: viewerUser, isSignedIn, isLoaded } = useUser();
   const router = useRouter();
 
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
@@ -98,6 +99,9 @@ export default function ProfilePage() {
   const [pendingParkName, setPendingParkName] = useState("");
   const [selectedBadge, setSelectedBadge] = useState<{ badge: BadgeDefinition; earnedAt: string | null } | null>(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [followModalTab, setFollowModalTab] = useState<"followers" | "following">("followers");
+  const [followModalOpen, setFollowModalOpen] = useState(false);
+  const [viewerFollowingIds, setViewerFollowingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/");
@@ -107,15 +111,18 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!username) return;
     setProfileLoading(true);
-    fetch(`/api/users/${encodeURIComponent(username)}`)
-      .then(r => r.json())
-      .then(data => {
+    Promise.all([
+      fetch(`/api/users/${encodeURIComponent(username)}`).then(r => r.json()),
+      fetch(`/api/follows?type=following`).then(r => r.ok ? r.json() : []),
+    ])
+      .then(([data, followingList]) => {
         if (data.error) { router.push("/feed"); return; }
         setProfile(data.profile);
         setPublicVisits(data.visits);
         const earned: Record<string, string> = {};
         data.badges.forEach((b: { badge_id: string; earned_at: string }) => { earned[b.badge_id] = b.earned_at; });
         setEarnedBadges(earned);
+        setViewerFollowingIds(new Set((followingList as { clerk_user_id: string }[]).map(f => f.clerk_user_id)));
       })
       .catch(() => {})
       .finally(() => setProfileLoading(false));
@@ -173,6 +180,7 @@ export default function ProfilePage() {
       if (profile.viewer_follows) {
         await fetch(`/api/follows?following_id=${profile.clerk_user_id}`, { method: "DELETE" });
         setProfile(p => p ? { ...p, viewer_follows: false, follower_count: p.follower_count - 1 } : null);
+        setViewerFollowingIds(prev => { const s = new Set(prev); s.delete(profile.clerk_user_id); return s; });
       } else {
         await fetch("/api/follows", {
           method: "POST",
@@ -180,6 +188,7 @@ export default function ProfilePage() {
           body: JSON.stringify({ following_id: profile.clerk_user_id }),
         });
         setProfile(p => p ? { ...p, viewer_follows: true, follower_count: p.follower_count + 1 } : null);
+        setViewerFollowingIds(prev => new Set([...prev, profile.clerk_user_id]));
       }
     } finally {
       setFollowLoading(false);
@@ -372,11 +381,19 @@ export default function ProfilePage() {
                     <span className="font-semibold text-gray-900">{bucketListCount}</span> on bucket list
                   </span>
                 )}
-                <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => { setFollowModalTab("followers"); setFollowModalOpen(true); }}
+                  className="flex items-center gap-1.5 hover:text-gray-900 transition-colors"
+                >
                   <Users className="w-4 h-4 text-gray-400" />
                   <span><span className="font-semibold text-gray-900">{profile.follower_count}</span> followers</span>
-                </div>
-                <span><span className="font-semibold text-gray-900">{profile.following_count}</span> following</span>
+                </button>
+                <button
+                  onClick={() => { setFollowModalTab("following"); setFollowModalOpen(true); }}
+                  className="hover:text-gray-900 transition-colors"
+                >
+                  <span><span className="font-semibold text-gray-900">{profile.following_count}</span> following</span>
+                </button>
               </div>
 
             </div>
@@ -571,6 +588,28 @@ export default function ProfilePage() {
           onClose={() => setSelectedBadge(null)}
         />
       )}
+
+      <FollowListModal
+        open={followModalOpen}
+        onOpenChange={setFollowModalOpen}
+        initialTab={followModalTab}
+        targetUserId={profile.clerk_user_id}
+        viewerId={viewerUser?.id ?? ""}
+        isOwnProfile={isOwn}
+        viewerFollowing={viewerFollowingIds}
+        onFollow={async (userId) => {
+          await fetch("/api/follows", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ following_id: userId }),
+          });
+          setViewerFollowingIds(prev => new Set([...prev, userId]));
+        }}
+        onUnfollow={async (userId) => {
+          await fetch(`/api/follows?following_id=${userId}`, { method: "DELETE" });
+          setViewerFollowingIds(prev => { const s = new Set(prev); s.delete(userId); return s; });
+        }}
+      />
 
       {isOwn && (
         <EditProfileDialog

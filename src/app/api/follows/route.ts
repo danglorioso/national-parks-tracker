@@ -4,6 +4,33 @@ import { db } from '@/lib/db';
 import { follows, userProfiles } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
+// shared helper used by GET
+async function enrichUsers(ids: string[]) {
+  if (ids.length === 0) return [];
+  const profiles = await db
+    .select({ clerk_user_id: userProfiles.clerk_user_id, username: userProfiles.username })
+    .from(userProfiles)
+    .where(inArray(userProfiles.clerk_user_id, ids));
+
+  const avatarMap = new Map<string, { imageUrl: string; firstName: string | null; lastName: string | null }>();
+  try {
+    const client = await clerkClient();
+    const clerkUsers = await client.users.getUserList({ userId: ids, limit: 100 });
+    clerkUsers.data.forEach(u => avatarMap.set(u.id, { imageUrl: u.imageUrl, firstName: u.firstName, lastName: u.lastName }));
+  } catch { /* non-critical */ }
+
+  return profiles.map(p => {
+    const clerk = avatarMap.get(p.clerk_user_id);
+    const nameParts = [clerk?.firstName, clerk?.lastName].filter(Boolean);
+    return {
+      clerk_user_id: p.clerk_user_id,
+      username: p.username,
+      avatar_url: clerk?.imageUrl ?? null,
+      full_name: nameParts.length > 0 ? nameParts.join(' ') : null,
+    };
+  });
+}
+
 export async function GET(request: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -31,12 +58,7 @@ export async function GET(request: Request) {
   if (rows.length === 0) return NextResponse.json([]);
 
   const ids = rows.map(r => r.clerk_user_id);
-  const profiles = await db
-    .select({ clerk_user_id: userProfiles.clerk_user_id, username: userProfiles.username })
-    .from(userProfiles)
-    .where(inArray(userProfiles.clerk_user_id, ids));
-
-  return NextResponse.json(profiles);
+  return NextResponse.json(await enrichUsers(ids));
 }
 
 export async function POST(request: Request) {

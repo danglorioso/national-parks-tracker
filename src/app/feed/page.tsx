@@ -70,7 +70,7 @@ function UserAvatar({ url, username, className = "w-9 h-9" }: { url: string | nu
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function FeedPage() {
-  const { isSignedIn, isLoaded } = useUser();
+  const { user, isSignedIn, isLoaded } = useUser();
   const router = useRouter();
 
   const [mode, setMode] = useState<FeedMode>('friends');
@@ -156,6 +156,8 @@ export default function FeedPage() {
   };
 
   if (!isLoaded) return null;
+
+  const viewerId = user?.id;
 
   const emptyMessage = mode === 'friends'
     ? { title: "Nothing here yet", sub: "Follow other explorers to see their visits and badges here." }
@@ -264,7 +266,7 @@ export default function FeedPage() {
                           </Link>
                           <p className="text-[10px] text-gray-400">{user.visit_count} park{user.visit_count !== 1 ? 's' : ''}</p>
                         </div>
-                        {!isFollowing && (
+                        {!isFollowing && viewerId !== user.clerk_user_id && (
                           <button
                             onClick={() => handleFollow(user.clerk_user_id)}
                             className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 shrink-0"
