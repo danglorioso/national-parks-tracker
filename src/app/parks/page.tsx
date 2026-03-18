@@ -308,14 +308,14 @@ export default function ExplorePage() {
 
         {/* Filter panel */}
         {showFilters && (
-          <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 flex flex-wrap gap-4">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 flex flex-wrap gap-4 items-end">
             {/* State */}
             <div className="flex flex-col gap-1.5 min-w-[180px]">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">State / Territory</label>
               <select
                 value={stateFilter}
                 onChange={e => setStateFilter(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 bg-white cursor-pointer"
+                className="border-input h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] cursor-pointer"
               >
                 <option value="">All states</option>
                 {allStates.map(code => (
@@ -333,7 +333,7 @@ export default function ExplorePage() {
                   const activity = activities.find(a => a.id === e.target.value) ?? null;
                   setActivityFilter(activity);
                 }}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500 bg-white cursor-pointer"
+                className="border-input h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] cursor-pointer"
                 disabled={activities.length === 0}
               >
                 <option value="">All activities</option>
@@ -345,7 +345,7 @@ export default function ExplorePage() {
 
             {/* Clear */}
             {hasFilters && (
-              <div className="flex items-end">
+              <div>
                 <button
                   onClick={() => { setStateFilter(""); setActivityFilter(null); setQuery(""); }}
                   className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600 transition-colors cursor-pointer px-2 py-2"
