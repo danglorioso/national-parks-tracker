@@ -24,6 +24,18 @@ import {
   Clock,
   DollarSign,
   CloudSun,
+  CloudMoon,
+  CloudRain,
+  CloudSnow,
+  CloudDrizzle,
+  CloudLightning,
+  CloudFog,
+  Wind,
+  Droplets,
+  Sun,
+  Moon,
+  Snowflake,
+  Thermometer,
   Tag,
   Mountain,
   CalendarDays,
@@ -110,6 +122,56 @@ type VisitStatus = "visited" | "bucketList" | "notVisited";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
+/* ─── Weather icon helper ────────────────────────────────────────────────── */
+
+// Parse the NWS icon URL (e.g. ".../day/tsra,80" or ".../night/few") to pick a lucide icon.
+function getWeatherIcon(iconUrl: string, isDaytime: boolean, size: "sm" | "lg" = "lg") {
+  const cls = size === "lg" ? "w-8 h-8" : "w-6 h-6";
+  // Extract the condition segment after "day/" or "night/"
+  const match = iconUrl.match(/\/(day|night)\/([^?/,]+)/);
+  const code = match?.[2] ?? "";
+
+  if (code.startsWith("tsra") || code.includes("lightning")) {
+    return <CloudLightning className={`${cls} text-yellow-500`} />;
+  }
+  if (code === "tornado") {
+    return <Wind className={`${cls} text-purple-500`} />;
+  }
+  if (code === "rain" || code === "fzra" || code.includes("sleet") || code === "rain_fzra") {
+    return <CloudRain className={`${cls} text-blue-500`} />;
+  }
+  if (code === "rain_showers" || code === "rain_showers_hi") {
+    return <CloudDrizzle className={`${cls} text-blue-400`} />;
+  }
+  if (code.includes("snow") || code === "blizzard") {
+    return <CloudSnow className={`${cls} text-sky-400`} />;
+  }
+  if (code === "cold") {
+    return <Snowflake className={`${cls} text-sky-400`} />;
+  }
+  if (code === "hot") {
+    return <Thermometer className={`${cls} text-orange-500`} />;
+  }
+  if (code === "fog" || code === "haze" || code === "smoke" || code === "dust") {
+    return <CloudFog className={`${cls} text-gray-400`} />;
+  }
+  if (code.startsWith("wind_")) {
+    return <Wind className={`${cls} text-gray-400`} />;
+  }
+  if (code === "ovc" || code === "bkn") {
+    return <CloudSun className={`${cls} text-gray-400`} />;
+  }
+  if (code === "sct" || code === "few") {
+    return isDaytime
+      ? <CloudSun className={`${cls} text-amber-400`} />
+      : <CloudMoon className={`${cls} text-indigo-300`} />;
+  }
+  // skc = clear / default
+  return isDaytime
+    ? <Sun className={`${cls} text-amber-400`} />
+    : <Moon className={`${cls} text-indigo-300`} />;
+}
+
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 
 export default function ParkPage({
@@ -138,6 +200,22 @@ export default function ParkPage({
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  interface WeatherPeriod {
+    name: string;
+    temp: number;
+    tempUnit: string;
+    shortForecast: string;
+    detailedForecast: string;
+    icon: string;
+    isDaytime: boolean;
+    windSpeed: string;
+    windDirection: string;
+    precipChance: number | null;
+  }
+  const [weather, setWeather] = useState<WeatherPeriod[] | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherUnavailable, setWeatherUnavailable] = useState(false);
+
   const openLightbox = (index: number) => setLightboxIndex(index);
   const closeLightbox = () => setLightboxIndex(null);
 
@@ -165,6 +243,20 @@ export default function ParkPage({
   useEffect(() => {
     fetchPark();
   }, [parkCode]);
+
+  useEffect(() => {
+    if (!park?.latitude || !park?.longitude) return;
+    setWeatherLoading(true);
+    setWeatherUnavailable(false);
+    fetch(`/api/weather?lat=${park.latitude}&lon=${park.longitude}`)
+      .then(r => {
+        if (r.status === 404) { setWeatherUnavailable(true); return null; }
+        return r.ok ? r.json() : null;
+      })
+      .then(data => { if (data) setWeather(data); })
+      .catch(() => {})
+      .finally(() => setWeatherLoading(false));
+  }, [park?.latitude, park?.longitude]);
 
   useEffect(() => {
     if (isSignedIn) {
@@ -490,10 +582,67 @@ export default function ParkPage({
             </Section>
           )}
 
-          {/* Weather */}
-          {park.weatherInfo && (
-            <Section title="Weather" icon={<CloudSun className="h-4 w-4" />}>
-              <p className="text-gray-700 leading-relaxed">{park.weatherInfo}</p>
+          {/* Weather Forecast */}
+          {(weatherLoading || weather || park.weatherInfo) && !weatherUnavailable && (
+            <Section title="Weather Forecast" icon={<CloudSun className="h-4 w-4" />}>
+              {weatherLoading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="bg-gray-50 rounded-xl p-3 space-y-2">
+                      <Skeleton className="h-3 w-16 rounded" />
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <Skeleton className="h-4 w-10 rounded" />
+                      <Skeleton className="h-3 w-full rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : weather && weather.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Day/night forecast cards — show daytime periods first */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {weather.filter(p => p.isDaytime).map((period) => (
+                      <div key={period.name} className="bg-sky-50 border border-sky-100 rounded-xl p-3 flex flex-col gap-1.5">
+                        <p className="text-xs font-semibold text-sky-800">{period.name}</p>
+                        {getWeatherIcon(period.icon, period.isDaytime, "lg")}
+                        <p className="text-lg font-bold text-gray-900">
+                          {period.temp}°{period.tempUnit}
+                        </p>
+                        <p className="text-xs text-gray-600 leading-snug">{period.shortForecast}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="flex items-center gap-0.5 text-[10px] text-gray-500">
+                            <Wind className="w-3 h-3" />
+                            {period.windSpeed} {period.windDirection}
+                          </span>
+                          {period.precipChance !== null && (
+                            <span className="flex items-center gap-0.5 text-[10px] text-sky-600">
+                              <Droplets className="w-3 h-3" />
+                              {period.precipChance}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Overnight lows row */}
+                  {weather.filter(p => !p.isDaytime).length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {weather.filter(p => !p.isDaytime).map((period) => (
+                        <div key={period.name} className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex flex-col gap-1.5">
+                          <p className="text-xs font-semibold text-gray-500">{period.name}</p>
+                          <div className="opacity-70">{getWeatherIcon(period.icon, period.isDaytime, "sm")}</div>
+                          <p className="text-base font-bold text-gray-700">
+                            {period.temp}°{period.tempUnit}
+                          </p>
+                          <p className="text-xs text-gray-500 leading-snug">{period.shortForecast}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-gray-400">Forecast from <a href="https://weather.gov" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600">weather.gov</a></p>
+                </div>
+              ) : park.weatherInfo ? (
+                <p className="text-gray-700 leading-relaxed">{park.weatherInfo}</p>
+              ) : null}
             </Section>
           )}
 
