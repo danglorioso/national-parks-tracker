@@ -85,9 +85,12 @@ export async function GET(
         : and(eq(visits.clerk_user_id, ownerId), eq(visits.is_bucket_list, false))
     );
 
-  const [userVisits, badges] = await Promise.all([
+  const [userVisits, badges, allVisitsCount] = await Promise.all([
     visitQuery,
     db.select().from(userBadges).where(eq(userBadges.clerk_user_id, ownerId)),
+    db.select({ id: visits.id }).from(visits).where(
+      and(eq(visits.clerk_user_id, ownerId), eq(visits.is_bucket_list, false))
+    ),
   ]);
 
   // Fetch Clerk avatar + name
@@ -112,6 +115,7 @@ export async function GET(
       following_count: followingRows.length,
       viewer_follows: viewerFollowsOwner,
       is_own_profile: isOwnProfile,
+      total_visit_count: allVisitsCount.length,
     },
     visits: userVisits,
     badges,

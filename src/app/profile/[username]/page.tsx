@@ -25,6 +25,7 @@ interface ProfileInfo {
   username: string;
   full_name: string | null;
   bio: string | null;
+  total_visit_count: number;
   avatar_url: string | null;
   follower_count: number;
   following_count: number;
@@ -357,7 +358,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-4 h-4 text-emerald-500" />
                   <span>
-                    <span className="font-semibold text-gray-900">{isOwn ? visitedParksCount : publicVisits.length}</span>
+                    <span className="font-semibold text-gray-900">{isOwn ? visitedParksCount : profile.total_visit_count}</span>
                     {isOwn ? `/${totalParksCount}` : ""} visited
                   </span>
                 </div>
