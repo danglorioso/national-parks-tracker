@@ -206,7 +206,7 @@ export default function Home() {
   ).length;
 
   const bucketListCount = parks.filter(p => p.status === 'bucketList').length;
-  const unvisitedCount = parks.filter(p => p.status === 'notVisited').length;
+  const unvisitedCount = parks.filter(p => p.status === 'notVisited' || p.status === 'bucketList').length;
 
   const recentVisits = [...visitedParks]
     .filter(p => p.visitedDate)
@@ -214,7 +214,11 @@ export default function Home() {
     .slice(0, 4)
     .map(p => ({ park_code: p.park_code, name: p.name, visitedDate: p.visitedDate! }));
 
-  const filteredParks = filterStatus === 'all' ? parks : parks.filter(p => p.status === filterStatus);
+  const filteredParks = filterStatus === 'all'
+    ? parks
+    : filterStatus === 'notVisited'
+      ? parks.filter(p => p.status === 'notVisited' || p.status === 'bucketList')
+      : parks.filter(p => p.status === filterStatus);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
