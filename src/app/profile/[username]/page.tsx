@@ -8,7 +8,8 @@ import Nav from "@/components/NavBar";
 import ProgressCard from "@/components/ProgressCard";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
 import EditVisitDialog from "@/components/EditVisitDialog";
-import { ALL_BADGES, TIER_CONFIG } from "@/lib/badges";
+import { ALL_BADGES, TIER_CONFIG, type BadgeDefinition } from "@/lib/badges";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import {
   MapPin, Users, UserCheck, Lock, Globe, UserRound,
@@ -94,6 +95,7 @@ export default function ProfilePage() {
   const [showVisitDialog, setShowVisitDialog] = useState(false);
   const [pendingParkCode, setPendingParkCode] = useState<string | null>(null);
   const [pendingParkName, setPendingParkName] = useState("");
+  const [selectedBadge, setSelectedBadge] = useState<{ badge: BadgeDefinition; earnedAt: string | null } | null>(null);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/");
@@ -391,6 +393,39 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* ── Recent Badges carousel — own profile only ── */}
+      {isOwn && Object.keys(earnedBadges).length > 0 && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Recent Badges</p>
+            <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-hide">
+              {ALL_BADGES
+                .filter(b => b.id in earnedBadges)
+                .sort((a, b) => new Date(earnedBadges[b.id]).getTime() - new Date(earnedBadges[a.id]).getTime())
+                .map(badge => {
+                  const tier = TIER_CONFIG[badge.tier];
+                  return (
+                    <button
+                      key={badge.id}
+                      onClick={() => setSelectedBadge({ badge, earnedAt: earnedBadges[badge.id] ?? null })}
+                      className="flex flex-col items-center gap-1.5 shrink-0 group"
+                      title={`${badge.name} — ${badge.description}`}
+                    >
+                      <div
+                        className="w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-sm ring-2 ring-white group-hover:scale-110 transition-transform"
+                        style={{ background: tier.cssGradient }}
+                      >
+                        {badge.emoji}
+                      </div>
+                      <span className="text-[10px] text-gray-500 font-medium text-center leading-tight max-w-[52px] truncate">{badge.name}</span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Tab Bar ── */}
       <div className="bg-white border-b border-gray-200 sticky top-16 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -470,12 +505,9 @@ export default function ProfilePage() {
                     ? <EmptyState icon={<CheckCircle2 className="h-10 w-10 text-gray-300" />}
                         title={searchQuery ? "No parks match your search" : "No visits yet"}
                         subtitle={searchQuery ? "Try a different search term" : "Start exploring and log your first visit!"} />
-                    : <>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {filtered.visited.map(p => <VisitedCard key={p.park_code} park={p} onEdit={handleEditVisit} onDelete={handleDeleteVisit} />)}
-                        </div>
-                        {!searchQuery && <OwnTimeline parks={visitedParks} onEdit={handleEditVisit} onDelete={handleDeleteVisit} />}
-                      </>
+                    : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filtered.visited.map(p => <VisitedCard key={p.park_code} park={p} onEdit={handleEditVisit} onDelete={handleDeleteVisit} />)}
+                      </div>
                 )}
 
                 {/* Bucket List */}
@@ -501,8 +533,11 @@ export default function ProfilePage() {
                 )}
 
                 {/* Badges — own profile */}
-                {ownTab === "badges" && <BadgesGrid earnedBadges={earnedBadges} loading={badgesLoading} />}
+                {ownTab === "badges" && <BadgesGrid earnedBadges={earnedBadges} loading={badgesLoading} onBadgeClick={setSelectedBadge} />}
               </>
+            )}
+            {!parksLoading && visitedParks.length > 0 && (
+              <OwnTimeline parks={visitedParks} onEdit={handleEditVisit} onDelete={handleDeleteVisit} />
             )}
           </>
         )}
@@ -515,7 +550,7 @@ export default function ProfilePage() {
                 ? <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">No visits yet.</div>
                 : <OtherTimeline visits={publicVisits} hiddenMonths={profile.hidden_months} />
             )}
-            {otherTab === "badges" && <BadgesGrid earnedBadges={earnedBadges} loading={false} />}
+            {otherTab === "badges" && <BadgesGrid earnedBadges={earnedBadges} loading={false} onBadgeClick={setSelectedBadge} />}
           </>
         )}
       </div>
@@ -526,6 +561,14 @@ export default function ProfilePage() {
         parkName={pendingParkName}
         onConfirm={handleConfirmVisitDate}
       />
+
+      {selectedBadge && (
+        <BadgeModal
+          badge={selectedBadge.badge}
+          earnedAt={selectedBadge.earnedAt}
+          onClose={() => setSelectedBadge(null)}
+        />
+      )}
     </div>
   );
 }
@@ -822,7 +865,44 @@ function GhostCard() {
   );
 }
 
-function BadgesGrid({ earnedBadges, loading }: { earnedBadges: Record<string, string>; loading: boolean }) {
+function BadgeModal({ badge, earnedAt, onClose }: { badge: BadgeDefinition; earnedAt: string | null; onClose: () => void }) {
+  const tier = TIER_CONFIG[badge.tier];
+  const isEarned = earnedAt !== null;
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="w-full max-w-xs text-center">
+        <div className="flex flex-col items-center gap-4 py-2">
+          <div
+            className="w-24 h-24 rounded-full flex items-center justify-center text-5xl shadow-lg ring-4 ring-white"
+            style={isEarned ? { background: tier.cssGradient, boxShadow: "0 6px 24px -4px rgba(0,0,0,0.3)" } : { background: "#e5e7eb" }}
+          >
+            <span style={{ filter: isEarned ? "none" : "grayscale(1) opacity(0.4)" }}>{badge.emoji}</span>
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">{badge.name}</h2>
+            <span className={`text-xs font-semibold uppercase tracking-wide ${isEarned ? tier.labelColor : "text-gray-400"}`}>
+              {tier.label}
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 leading-relaxed">{badge.description}</p>
+          {isEarned ? (
+            <p className="text-xs text-gray-400">
+              Earned {format(new Date(earnedAt!), "MMMM d, yyyy")}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 italic">Not yet earned</p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BadgesGrid({ earnedBadges, loading, onBadgeClick }: {
+  earnedBadges: Record<string, string>;
+  loading: boolean;
+  onBadgeClick: (sel: { badge: BadgeDefinition; earnedAt: string | null }) => void;
+}) {
   if (loading) {
     return (
       <div className="flex flex-wrap gap-5">
@@ -845,13 +925,16 @@ function BadgesGrid({ earnedBadges, loading }: { earnedBadges: Record<string, st
           const isEarned = badge.id in earnedBadges;
           const tier = TIER_CONFIG[badge.tier];
           return (
-            <div key={badge.id} className="flex flex-col items-center gap-2 w-16">
+            <button
+              key={badge.id}
+              onClick={() => onBadgeClick({ badge, earnedAt: earnedBadges[badge.id] ?? null })}
+              className="flex flex-col items-center gap-2 w-16 group text-left"
+            >
               <div
-                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-md ring-2 transition-transform hover:scale-110"
+                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-md ring-2 transition-transform group-hover:scale-110"
                 style={isEarned
                   ? { background: tier.cssGradient, boxShadow: "0 4px 14px -2px rgba(0,0,0,0.25)" }
                   : { background: "#e5e7eb" }}
-                title={`${badge.name} — ${badge.description}`}
               >
                 <span style={{ filter: isEarned ? "none" : "grayscale(1) opacity(0.4)" }}>{badge.emoji}</span>
               </div>
@@ -861,7 +944,7 @@ function BadgesGrid({ earnedBadges, loading }: { earnedBadges: Record<string, st
               {isEarned && (
                 <span className={`text-[10px] font-semibold uppercase tracking-wide ${tier.labelColor}`}>{tier.label}</span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>

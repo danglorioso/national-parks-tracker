@@ -36,7 +36,7 @@ export default function VisitDateDialog({ open, onOpenChange, parkName, onConfir
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
-  const [visibility, setVisibility] = useState<JournalData['visibility']>('private');
+  const [visibility, setVisibility] = useState<JournalData['visibility']>('public');
   const [dateError, setDateError] = useState("");
 
   const handleNext = () => {

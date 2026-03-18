@@ -140,16 +140,6 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                             >
                                 My Visits
                             </Link>
-                            <Link 
-                                href="/badges" 
-                                className={`px-4 py-2 rounded-lg font-medium transition ${
-                                    pathname === '/badges'
-                                        ? 'font-semibold text-green-600 bg-green-50'
-                                        : 'text-gray-600 hover:bg-gray-100'
-                                }`}
-                            >
-                                Badges
-                            </Link>
                             <Link
                                 href="/feed"
                                 className={`px-4 py-2 rounded-lg font-medium transition ${
