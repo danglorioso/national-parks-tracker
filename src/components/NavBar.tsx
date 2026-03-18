@@ -20,6 +20,15 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
     const { signOut } = useClerk();
     const dropdownRef = useRef<HTMLDivElement>(null);
     const pathname = usePathname();
+    const [username, setUsername] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isLoaded || !user) return;
+        fetch('/api/users/me')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data?.username) setUsername(data.username); })
+            .catch(() => {});
+    }, [isLoaded, user]);
 
     const fullName = user?.firstName && user?.lastName 
         ? `${user.firstName} ${user.lastName}` 
@@ -93,15 +102,15 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                             >
                                 Badges
                             </Link>
-                            <Link 
-                                href="/community" 
+                            <Link
+                                href="/feed"
                                 className={`px-4 py-2 rounded-lg font-medium transition ${
-                                    pathname === '/community'
+                                    pathname === '/feed'
                                         ? 'font-semibold text-green-600 bg-green-50'
                                         : 'text-gray-600 hover:bg-gray-100'
                                 }`}
                             >
-                                Community
+                                Feed
                             </Link>
                         </div>
                     </div>
@@ -130,7 +139,7 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                                 />) : (<Skeleton className="w-10 h-10 rounded-full bg-gray-300 border-green-500 border-2" />)}
                             </button>
                             
-                            <AccountDropdown isOpen={accountDropdownOpen} onSignOut={handleSignOut} />
+                            <AccountDropdown isOpen={accountDropdownOpen} onSignOut={handleSignOut} username={username} />
                         </div>
                         
                     </div>

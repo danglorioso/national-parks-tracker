@@ -9,7 +9,7 @@ import QuickStats from "@/components/QuickStats";
 import RecentVisits from "@/components/RecentBadges";
 import Legend from "@/components/Legend";
 import Map from "@/components/Map";
-import VisitDateDialog from "@/components/VisitDateDialog";
+import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
 
 interface ParkFromDB {
   park_code: string;
@@ -128,7 +128,7 @@ export default function Home() {
     }
   };
 
-  const handleConfirmVisitDate = async (date: Date) => {
+  const handleConfirmVisitDate = async (date: Date, journal: JournalData) => {
     if (!pendingParkCode) return;
     const park = parks.find(p => p.park_code === pendingParkCode);
     const wasAlreadyVisited = park?.status === 'visited';
@@ -136,7 +136,15 @@ export default function Home() {
       const response = await fetch('/api/visits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ park_code: pendingParkCode, is_bucket_list: false, visited_date: date.toISOString() }),
+        body: JSON.stringify({
+          park_code: pendingParkCode,
+          is_bucket_list: false,
+          visited_date: date.toISOString(),
+          title: journal.title,
+          notes: journal.notes,
+          photos: journal.photos,
+          visibility: journal.visibility,
+        }),
       });
       if (!response.ok) throw new Error('Failed to mark park as visited');
       setParks(prev => prev.map(p =>

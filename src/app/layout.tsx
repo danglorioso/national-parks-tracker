@@ -4,6 +4,7 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { ClerkProvider } from "@clerk/nextjs";
 import Footer from "../components/Footer";
+import OnboardingGuard from "../components/OnboardingGuard";
 import 'leaflet/dist/leaflet.css';
 
 const inter = Inter({
@@ -32,6 +33,7 @@ export default function RootLayout({
         <body
           className={`${inter.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
         >
+          <OnboardingGuard />
           <div className="flex-1">
             {children}
           </div>

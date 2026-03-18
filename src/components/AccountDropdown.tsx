@@ -1,20 +1,23 @@
-import { useUser, useClerk } from "@clerk/nextjs";
-import { CheckCircle2, Mail, LogOut } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { CheckCircle2, Mail, LogOut, UserRound } from "lucide-react";
+import Link from "next/link";
 
-export default function AccountDropdown({ isOpen, onSignOut }: { isOpen: boolean; onSignOut: () => void }) {
+export default function AccountDropdown({
+    isOpen,
+    onSignOut,
+    username,
+}: {
+    isOpen: boolean;
+    onSignOut: () => void;
+    username: string | null;
+}) {
     const { user } = useUser();
-    const { signOut } = useClerk();
 
-    const fullName = user?.firstName && user?.lastName 
-        ? `${user.firstName} ${user.lastName}` 
+    const fullName = user?.firstName && user?.lastName
+        ? `${user.firstName} ${user.lastName}`
         : user?.firstName || user?.lastName || 'User';
-    
-    const emailVerified = user?.emailAddresses?.find(email => email.id === user.primaryEmailAddressId)?.verification?.status === 'verified';
 
-    const handleSignOut = async () => {
-        await signOut();
-        onSignOut();
-    };
+    const emailVerified = user?.emailAddresses?.find(email => email.id === user.primaryEmailAddressId)?.verification?.status === 'verified';
 
     if (!isOpen) return null;
 
@@ -24,6 +27,18 @@ export default function AccountDropdown({ isOpen, onSignOut }: { isOpen: boolean
                 <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
                     <div className="space-y-4">
+                        {username && (
+                            <div>
+                                <p className="text-sm font-medium text-gray-500">Username</p>
+                                <Link
+                                    href={`/profile/${username}`}
+                                    className="flex items-center gap-1.5 text-base text-emerald-600 hover:underline font-medium"
+                                >
+                                    <UserRound className="h-4 w-4" />
+                                    @{username}
+                                </Link>
+                            </div>
+                        )}
                         <div>
                             <p className="text-sm font-medium text-gray-500">Name</p>
                             <p className="text-lg font-semibold">{fullName}</p>
@@ -51,10 +66,10 @@ export default function AccountDropdown({ isOpen, onSignOut }: { isOpen: boolean
                         {user?.createdAt && (
                             <div>
                                 <p className="text-sm font-medium text-gray-500">Member since</p>
-                                <p className="text-base">{new Date(user.createdAt).toLocaleDateString('en-US', { 
-                                    year: 'numeric', 
-                                    month: 'long', 
-                                    day: 'numeric' 
+                                <p className="text-base">{new Date(user.createdAt).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
                                 })}</p>
                             </div>
                         )}
@@ -62,7 +77,7 @@ export default function AccountDropdown({ isOpen, onSignOut }: { isOpen: boolean
                 </div>
                 <div className="border-t border-gray-200 pt-4">
                     <button
-                        onClick={handleSignOut}
+                        onClick={onSignOut}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition font-medium"
                     >
                         <LogOut className="h-4 w-4" />
