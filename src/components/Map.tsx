@@ -17,28 +17,31 @@ interface MapProps {
   onAddToBucketList?: (parkCode: string) => void;
   onRemoveFromBucketList?: (parkCode: string) => void;
   onMarkNotVisited?: (parkCode: string) => void;
+  onEditVisit?: (parkCode: string) => void;
 }
 
 export default function Map(props: MapProps = {}) {
-  const { 
-    center, 
-    zoom, 
-    className, 
-    parks, 
-    onMarkVisited, 
-    onAddToBucketList, 
-    onRemoveFromBucketList, 
-    onMarkNotVisited, 
+  const {
+    center,
+    zoom,
+    className,
+    parks,
+    onMarkVisited,
+    onAddToBucketList,
+    onRemoveFromBucketList,
+    onMarkNotVisited,
+    onEditVisit,
   } = props;
-  
-  return <LeafletMap 
-    center={center} 
-    zoom={zoom} 
-    className={className} 
-    parks={parks} 
-    onMarkVisited={onMarkVisited} 
-    onAddToBucketList={onAddToBucketList} 
-    onRemoveFromBucketList={onRemoveFromBucketList} 
-    onMarkNotVisited={onMarkNotVisited} 
+
+  return <LeafletMap
+    center={center}
+    zoom={zoom}
+    className={className}
+    parks={parks}
+    onMarkVisited={onMarkVisited}
+    onAddToBucketList={onAddToBucketList}
+    onRemoveFromBucketList={onRemoveFromBucketList}
+    onMarkNotVisited={onMarkNotVisited}
+    onEditVisit={onEditVisit}
   />;
 }

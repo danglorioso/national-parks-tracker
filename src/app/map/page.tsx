@@ -10,6 +10,7 @@ import RecentVisits from "@/components/RecentBadges";
 import Legend from "@/components/Legend";
 import Map from "@/components/Map";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
+import EditVisitDialog from "@/components/EditVisitDialog";
 
 interface ParkFromDB {
   park_code: string;
@@ -28,6 +29,10 @@ interface ParkForMap {
   status: 'visited' | 'notVisited' | 'bucketList';
   description?: string;
   visitedDate?: string | null;
+  title?: string | null;
+  notes?: string | null;
+  photos?: string[] | null;
+  visibility?: string | null;
 }
 
 type FilterStatus = 'all' | 'visited' | 'bucketList' | 'notVisited';
@@ -50,6 +55,7 @@ export default function Home() {
   const [showVisitDateDialog, setShowVisitDateDialog] = useState(false);
   const [pendingParkCode, setPendingParkCode] = useState<string | null>(null);
   const [pendingParkName, setPendingParkName] = useState<string>("");
+  const [pendingEdit, setPendingEdit] = useState<ParkForMap | null>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
 
   useEffect(() => {
@@ -78,15 +84,17 @@ export default function Home() {
       const visitedParkCodes: Set<string> = new Set();
       const bucketListParkCodes: Set<string> = new Set();
       const visitDatesMap: Record<string, string> = {};
+      const journalMap: Record<string, { title: string | null; notes: string | null; photos: string[] | null; visibility: string | null }> = {};
 
       if (visitsResponse.ok) {
-        const visitsData: Array<{ park_code: string; is_bucket_list: boolean; visited_date: string | null }> = await visitsResponse.json();
+        const visitsData: Array<{ park_code: string; is_bucket_list: boolean; visited_date: string | null; title: string | null; notes: string | null; photos: string[] | null; visibility: string | null }> = await visitsResponse.json();
         visitsData.forEach(visit => {
           if (visit.is_bucket_list) {
             bucketListParkCodes.add(visit.park_code);
           } else if (visit.visited_date) {
             visitedParkCodes.add(visit.park_code);
             visitDatesMap[visit.park_code] = visit.visited_date;
+            journalMap[visit.park_code] = { title: visit.title, notes: visit.notes, photos: visit.photos, visibility: visit.visibility };
           }
         });
         setVisitedParksCount(visitedParkCodes.size);
@@ -108,6 +116,7 @@ export default function Home() {
             status,
             description: park.description || undefined,
             visitedDate: visitDatesMap[park.park_code] || null,
+            ...(journalMap[park.park_code] ?? {}),
           };
         });
 
@@ -185,6 +194,29 @@ export default function Home() {
     } catch (error) {
       console.error('Error removing park from bucket list:', error);
     }
+  };
+
+  const handleEditVisit = async (parkCode: string, date: Date, journal: JournalData) => {
+    const res = await fetch('/api/visits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        park_code: parkCode,
+        is_bucket_list: false,
+        visited_date: date.toISOString(),
+        title: journal.title,
+        notes: journal.notes,
+        photos: journal.photos,
+        visibility: journal.visibility,
+      }),
+    });
+    if (!res.ok) return;
+    setParks(prev => prev.map(p =>
+      p.park_code === parkCode
+        ? { ...p, visitedDate: date.toISOString(), title: journal.title, notes: journal.notes, photos: journal.photos ?? null, visibility: journal.visibility }
+        : p
+    ));
+    setPendingEdit(null);
   };
 
   const handleMarkNotVisited = async (parkCode: string) => {
@@ -305,6 +337,10 @@ export default function Home() {
                     onAddToBucketList={handleAddToBucketList}
                     onRemoveFromBucketList={handleRemoveFromBucketList}
                     onMarkNotVisited={handleMarkNotVisited}
+                    onEditVisit={(parkCode) => {
+                      const park = parks.find(p => p.park_code === parkCode);
+                      if (park) setPendingEdit(park);
+                    }}
                   />
                   <div className="absolute bottom-4 left-4 z-[100]">
                     <Legend />
@@ -321,6 +357,25 @@ export default function Home() {
           parkName={pendingParkName}
           onConfirm={handleConfirmVisitDate}
         />
+        {pendingEdit && (
+          <EditVisitDialog
+            open={!!pendingEdit}
+            onOpenChange={(open) => { if (!open) setPendingEdit(null); }}
+            parkName={pendingEdit.name}
+            existing={{
+              visitedDate: pendingEdit.visitedDate ?? new Date().toISOString(),
+              title: pendingEdit.title,
+              notes: pendingEdit.notes,
+              photos: pendingEdit.photos,
+              visibility: pendingEdit.visibility,
+            }}
+            onSave={(date, journal) => handleEditVisit(pendingEdit.park_code, date, journal)}
+            onDelete={async () => {
+              await handleMarkNotVisited(pendingEdit.park_code);
+              setPendingEdit(null);
+            }}
+          />
+        )}
       </div>
     );
   }

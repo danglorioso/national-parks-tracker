@@ -7,11 +7,12 @@ import Link from "next/link";
 import Nav from "@/components/NavBar";
 import ProgressCard from "@/components/ProgressCard";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
+import EditVisitDialog from "@/components/EditVisitDialog";
 import { ALL_BADGES, TIER_CONFIG } from "@/lib/badges";
 import { format } from "date-fns";
 import {
   MapPin, Users, UserCheck, Lock, Globe, UserRound,
-  CheckCircle2, Bookmark, Trash2, CalendarDays, Search, Plus,
+  CheckCircle2, Bookmark, CalendarDays, Search, Plus, Pencil, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,10 @@ interface ParkWithStatus {
   status: "visited" | "notVisited" | "bucketList";
   visitedDate: string | null;
   description?: string;
+  title?: string | null;
+  notes?: string | null;
+  photos?: string[] | null;
+  visibility?: string | null;
 }
 
 const VISIBILITY_ICONS: Record<string, React.ReactNode> = {
@@ -124,9 +129,14 @@ export default function ProfilePage() {
       const visitedCodes = new Set<string>();
       const bucketCodes = new Set<string>();
       const datesMap: Record<string, string> = {};
-      visitsData.forEach((v: { park_code: string; is_bucket_list: boolean; visited_date: string | null }) => {
+      const journalMap: Record<string, { title: string | null; notes: string | null; photos: string[] | null; visibility: string | null }> = {};
+      visitsData.forEach((v: { park_code: string; is_bucket_list: boolean; visited_date: string | null; title: string | null; notes: string | null; photos: string[] | null; visibility: string | null }) => {
         if (v.is_bucket_list) bucketCodes.add(v.park_code);
-        else if (v.visited_date) { visitedCodes.add(v.park_code); datesMap[v.park_code] = v.visited_date; }
+        else if (v.visited_date) {
+          visitedCodes.add(v.park_code);
+          datesMap[v.park_code] = v.visited_date;
+          journalMap[v.park_code] = { title: v.title, notes: v.notes, photos: v.photos, visibility: v.visibility };
+        }
       });
       setVisitedParksCount(visitedCodes.size);
       setBucketListCount(bucketCodes.size);
@@ -136,6 +146,7 @@ export default function ProfilePage() {
         status: visitedCodes.has(p.park_code) ? "visited" : bucketCodes.has(p.park_code) ? "bucketList" : "notVisited",
         visitedDate: datesMap[p.park_code] || null,
         description: p.description ?? undefined,
+        ...(journalMap[p.park_code] ?? {}),
       })));
     }).catch(() => {}).finally(() => setParksLoading(false));
 
@@ -219,6 +230,26 @@ export default function ProfilePage() {
     if (!res.ok) return;
     setParks(prev => prev.map(p => p.park_code === parkCode ? { ...p, status: "bucketList" } : p));
     setBucketListCount(n => n + 1);
+  };
+
+  const handleEditVisit = async (parkCode: string, date: Date, journal: JournalData) => {
+    const res = await fetch("/api/visits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        park_code: parkCode,
+        is_bucket_list: false,
+        visited_date: date.toISOString(),
+        title: journal.title,
+        notes: journal.notes,
+        photos: journal.photos,
+        visibility: journal.visibility,
+      }),
+    });
+    if (!res.ok) return;
+    setParks(prev => prev.map(p => p.park_code === parkCode
+      ? { ...p, visitedDate: date.toISOString(), title: journal.title, notes: journal.notes, photos: journal.photos ?? null, visibility: journal.visibility }
+      : p));
   };
 
   const handleDeleteVisit = async (parkCode: string) => {
@@ -429,7 +460,7 @@ export default function ProfilePage() {
                         title={searchQuery ? "No parks match your search" : "No visits yet"}
                         subtitle={searchQuery ? "Try a different search term" : "Start exploring and log your first visit!"} />
                     : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filtered.visited.map(p => <VisitedCard key={p.park_code} park={p} onDelete={handleDeleteVisit} />)}
+                        {filtered.visited.map(p => <VisitedCard key={p.park_code} park={p} onEdit={handleEditVisit} onDelete={handleDeleteVisit} />)}
                       </div>
                 )}
 
@@ -506,30 +537,56 @@ function EmptyState({ icon, title, subtitle }: { icon: React.ReactNode; title: s
   );
 }
 
-function VisitedCard({ park, onDelete }: { park: ParkWithStatus; onDelete: (code: string) => void }) {
+function VisitedCard({ park, onEdit, onDelete }: {
+  park: ParkWithStatus;
+  onEdit: (parkCode: string, date: Date, journal: JournalData) => void;
+  onDelete: (code: string) => void;
+}) {
+  const [editOpen, setEditOpen] = useState(false);
   const dateLabel = park.visitedDate
     ? new Date(park.visitedDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
     : null;
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-start gap-3 min-w-0">
-          <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
-          <Link href={`/parks/${park.park_code}`} className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 hover:text-emerald-600 transition-colors">
-            {park.name}
-          </Link>
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-3 min-w-0">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+            <Link href={`/parks/${park.park_code}`} className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 hover:text-emerald-600 transition-colors">
+              {park.name}
+            </Link>
+          </div>
+          <button
+            onClick={() => setEditOpen(true)}
+            className="shrink-0 p-1 text-gray-300 hover:text-gray-600 transition-colors rounded"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
         </div>
-        <button onClick={() => onDelete(park.park_code)} className="shrink-0 p-1 text-gray-300 hover:text-red-500 transition-colors rounded">
-          <Trash2 className="h-4 w-4" />
-        </button>
+        {dateLabel && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <CalendarDays className="h-3.5 w-3.5" />
+            {dateLabel}
+          </div>
+        )}
+        {park.title && <p className="text-sm font-medium text-gray-800">{park.title}</p>}
+        {park.notes && <p className="text-sm text-gray-500 line-clamp-2">{park.notes}</p>}
       </div>
-      {dateLabel && (
-        <div className="flex items-center gap-1.5 text-xs text-gray-400">
-          <CalendarDays className="h-3.5 w-3.5" />
-          {dateLabel}
-        </div>
-      )}
-    </div>
+      <EditVisitDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        parkName={park.name}
+        existing={{
+          visitedDate: park.visitedDate ?? new Date().toISOString(),
+          title: park.title,
+          notes: park.notes,
+          photos: park.photos,
+          visibility: park.visibility,
+        }}
+        onSave={(date, journal) => onEdit(park.park_code, date, journal)}
+        onDelete={() => onDelete(park.park_code)}
+      />
+    </>
   );
 }
 

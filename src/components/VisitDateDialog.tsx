@@ -99,6 +99,10 @@ export default function VisitDateDialog({ open, onOpenChange, parkName, onConfir
                 mode="single"
                 selected={date}
                 onSelect={setDate}
+                captionLayout="dropdown"
+                fromYear={1950}
+                toYear={new Date().getFullYear()}
+                fixedWeeks
                 className="rounded-xl border border-gray-200 shadow-sm"
               />
             </div>
