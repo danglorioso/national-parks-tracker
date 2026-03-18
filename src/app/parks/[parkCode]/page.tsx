@@ -490,22 +490,6 @@ export default function ParkPage({
             </Section>
           )}
 
-          {/* Topics */}
-          {park.topics?.length > 0 && (
-            <Section title="Topics" icon={<Tag className="h-4 w-4" />}>
-              <div className="flex flex-wrap gap-2">
-                {park.topics.map((t) => (
-                  <span
-                    key={t.id}
-                    className="px-3 py-1 bg-sky-50 text-sky-700 text-sm rounded-full border border-sky-200"
-                  >
-                    {t.name}
-                  </span>
-                ))}
-              </div>
-            </Section>
-          )}
-
           {/* Weather */}
           {park.weatherInfo && (
             <Section title="Weather" icon={<CloudSun className="h-4 w-4" />}>
@@ -680,6 +664,22 @@ export default function ParkPage({
                   {park.operatingHours[0].description}
                 </p>
               )}
+            </SideCard>
+          )}
+
+          {/* Topics */}
+          {park.topics?.length > 0 && (
+            <SideCard title="Topics" icon={<Tag className="h-4 w-4" />}>
+              <div className="flex flex-wrap gap-1.5">
+                {park.topics.map((t) => (
+                  <span
+                    key={t.id}
+                    className="px-2.5 py-0.5 bg-sky-50 text-sky-700 text-xs rounded-full border border-sky-200"
+                  >
+                    {t.name}
+                  </span>
+                ))}
+              </div>
             </SideCard>
           )}
 
