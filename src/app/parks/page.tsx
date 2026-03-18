@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
@@ -169,6 +170,7 @@ function ParkCard({ park, image }: { park: Park; image?: string }) {
 
 export default function ExplorePage() {
   const { isSignedIn, isLoaded } = useUser();
+  const searchParams = useSearchParams();
 
   const [parks, setParks] = useState<Park[]>([]);
   const [featured, setFeatured] = useState<FeaturedPark[]>([]);
@@ -179,54 +181,72 @@ export default function ExplorePage() {
   const [query, setQuery] = useState("");
   const [stateFilter, setStateFilter] = useState("");
   const [activityFilter, setActivityFilter] = useState<Activity | null>(null);
-  const [activityParkCodes, setActivityParkCodes] = useState<Set<string> | null>(null);
-  const [activityLoading, setActivityLoading] = useState(false);
+  // fetchedFor tracks which activity ID the codes were fetched for,
+  // letting us derive loading state without synchronous setState in effects
+  const [fetchedFor, setFetchedFor] = useState<string | null>(null);
+  const [fetchedActivityCodes, setFetchedActivityCodes] = useState<Set<string> | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Carousel parks — randomly sample ~12 from featured
-  const [carouselParks, setCarouselParks] = useState<FeaturedPark[]>([]);
+  const activityLoading = !!activityFilter && fetchedFor !== activityFilter.id;
+  const activityParkCodes = activityFilter && fetchedFor === activityFilter.id ? fetchedActivityCodes : null;
+
+  const initialActivityId = searchParams.get('activityId');
+  const appliedInitialFilter = useRef(false);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/parks").then(r => r.json()),
       fetch("/api/parks/activities").then(r => r.json()),
-    ]).then(([parksData, activitiesData]) => {
+    ]).then(([parksData, activitiesData]: [Park[], Activity[]]) => {
       setParks(parksData);
       setActivities(activitiesData);
     }).finally(() => setParksLoading(false));
 
     fetch("/api/parks/featured")
       .then(r => r.json())
-      .then((data: FeaturedPark[]) => {
-        setFeatured(data);
-      })
+      .then((data: FeaturedPark[]) => setFeatured(data))
       .finally(() => setCarouselLoading(false));
   }, []);
 
-  // Load park codes for selected activity
+  // Apply URL activity filter once activities have loaded.
+  // queueMicrotask keeps setState out of the synchronous effect body.
   useEffect(() => {
-    if (!activityFilter) { setActivityParkCodes(null); return; }
-    setActivityLoading(true);
+    if (!initialActivityId || activities.length === 0 || appliedInitialFilter.current) return;
+    const match = activities.find(a => a.id === initialActivityId);
+    if (match) {
+      appliedInitialFilter.current = true;
+      queueMicrotask(() => {
+        setActivityFilter(match);
+        setShowFilters(true);
+      });
+    }
+  }, [activities, initialActivityId]);
+
+  // Load park codes for selected activity — all setState calls happen in async callbacks
+  useEffect(() => {
+    if (!activityFilter) return;
     fetch(`/api/parks/activities?id=${activityFilter.id}`)
       .then(r => r.json())
-      .then((codes: string[]) => setActivityParkCodes(new Set(codes)))
-      .catch(() => setActivityParkCodes(null))
-      .finally(() => setActivityLoading(false));
+      .then((codes: string[]) => {
+        setFetchedActivityCodes(new Set(codes));
+        setFetchedFor(activityFilter.id);
+      })
+      .catch(() => setFetchedFor(activityFilter.id));
   }, [activityFilter]);
 
-  // Build carousel parks: only NPS entries whose park_code matches a DB park (accounting for aliases)
+  // Carousel parks — only DB parks, randomly sampled once on load
+  const [carouselParks, setCarouselParks] = useState<FeaturedPark[]>([]);
+  const carouselSeeded = useRef(false);
   useEffect(() => {
-    if (parks.length === 0 || featured.length === 0) return;
+    if (parks.length === 0 || featured.length === 0 || carouselSeeded.current) return;
+    carouselSeeded.current = true;
     const dbCodes = new Set(parks.map(p => p.park_code));
-    // Reverse alias map: NPS code → DB codes (e.g. seki → [sequ, king])
     const REVERSE_ALIASES: Record<string, string[]> = { seki: ['sequ', 'king'] };
-    const inDb = featured.filter(f => {
-      if (dbCodes.has(f.park_code)) return true;
-      // If this NPS code is an alias target, check if any of its DB codes are present
-      return (REVERSE_ALIASES[f.park_code] ?? []).some(c => dbCodes.has(c));
-    });
-    const shuffled = [...inDb].sort(() => Math.random() - 0.5).slice(0, 12);
-    setCarouselParks(shuffled);
+    const inDb = featured.filter(f =>
+      dbCodes.has(f.park_code) || (REVERSE_ALIASES[f.park_code] ?? []).some(c => dbCodes.has(c))
+    );
+    Promise.resolve([...inDb].sort(() => Math.random() - 0.5).slice(0, 12))
+      .then(setCarouselParks);
   }, [parks, featured]);
 
   // Build image map from featured (NPS codes → image URL)

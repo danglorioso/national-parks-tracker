@@ -499,10 +499,10 @@ export default function ParkPage({
                   alt={park.images[carouselIndex].altText}
                   className="w-full h-full object-cover"
                 />
-                {/* Expand hint on hover */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-3">
-                    <Expand className="h-5 w-5 text-white" />
+                {/* Expand button in corner */}
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="bg-black/50 hover:bg-black/70 rounded-full p-2 transition-colors">
+                    <Expand className="h-4 w-4 text-white" />
                   </div>
                 </div>
 
@@ -571,12 +571,13 @@ export default function ParkPage({
             <Section title="Activities" icon={<Tag className="h-4 w-4" />}>
               <div className="flex flex-wrap gap-2">
                 {park.activities.map((a) => (
-                  <span
+                  <Link
                     key={a.id}
-                    className="px-3 py-1 bg-emerald-50 text-emerald-700 text-sm rounded-full border border-emerald-200"
+                    href={`/parks?activityId=${a.id}`}
+                    className="px-3 py-1 bg-emerald-50 text-emerald-700 text-sm rounded-full border border-emerald-200 hover:bg-emerald-100 transition-colors"
                   >
                     {a.name}
-                  </span>
+                  </Link>
                 ))}
               </div>
             </Section>
