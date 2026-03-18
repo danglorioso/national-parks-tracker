@@ -2,15 +2,18 @@
 
 import { useEffect, useState, use, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import Header from "@/components/Header";
-import VisitDateDialog from "@/components/VisitDateDialog";
+import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
+import EditVisitDialog from "@/components/EditVisitDialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   CheckCircle2,
   Bookmark,
+  Pencil,
   Trash2,
   MapPin,
   Phone,
@@ -116,6 +119,7 @@ export default function ParkPage({
 }) {
   const { parkCode } = use(params);
   const { isSignedIn, isLoaded } = useUser();
+  const router = useRouter();
 
   const [park, setPark] = useState<NPSPark | null>(null);
   const [parkLoading, setParkLoading] = useState(true);
@@ -128,6 +132,8 @@ export default function ParkPage({
   const [visitedParksCount, setVisitedParksCount] = useState(0);
 
   const [showVisitDateDialog, setShowVisitDateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [visitJournal, setVisitJournal] = useState<{ title: string | null; notes: string | null; photos: string[] | null; visibility: string | null }>({ title: null, notes: null, photos: null, visibility: null });
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -192,6 +198,10 @@ export default function ParkPage({
           park_code: string;
           is_bucket_list: boolean;
           visited_date: string | null;
+          title: string | null;
+          notes: string | null;
+          photos: string[] | null;
+          visibility: string | null;
         }> = await visitsRes.json();
         const match = visits.find((v) => v.park_code === parkCode);
         if (match) {
@@ -200,6 +210,7 @@ export default function ParkPage({
           } else {
             setVisitStatus("visited");
             setVisitedDate(match.visited_date);
+            setVisitJournal({ title: match.title, notes: match.notes, photos: match.photos, visibility: match.visibility });
           }
         }
         setVisitedParksCount(
@@ -217,9 +228,8 @@ export default function ParkPage({
 
   const handleMarkVisited = () => setShowVisitDateDialog(true);
 
-  const handleConfirmVisitDate = async (date: Date) => {
+  const handleConfirmVisitDate = async (date: Date, journal: JournalData) => {
     const wasVisited = visitStatus === "visited";
-    const wasBucketList = visitStatus === "bucketList";
     try {
       const res = await fetch("/api/visits", {
         method: "POST",
@@ -228,17 +238,40 @@ export default function ParkPage({
           park_code: parkCode,
           is_bucket_list: false,
           visited_date: date.toISOString(),
+          title: journal.title,
+          notes: journal.notes,
+          photos: journal.photos,
+          visibility: journal.visibility,
         }),
       });
       if (!res.ok) throw new Error("Failed");
       setVisitStatus("visited");
       setVisitedDate(date.toISOString());
-      if (!wasVisited) {
-        setVisitedParksCount((p) => p + 1);
-        if (wasBucketList) {
-          // no change to visitedParksCount for bucket list
-        }
-      }
+      setVisitJournal({ title: journal.title ?? null, notes: journal.notes ?? null, photos: journal.photos ?? null, visibility: journal.visibility });
+      if (!wasVisited) setVisitedParksCount((p) => p + 1);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleEditVisit = async (date: Date, journal: JournalData) => {
+    try {
+      const res = await fetch("/api/visits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          park_code: parkCode,
+          is_bucket_list: false,
+          visited_date: date.toISOString(),
+          title: journal.title,
+          notes: journal.notes,
+          photos: journal.photos,
+          visibility: journal.visibility,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setVisitedDate(date.toISOString());
+      setVisitJournal({ title: journal.title ?? null, notes: journal.notes ?? null, photos: journal.photos ?? null, visibility: journal.visibility });
     } catch (e) {
       console.error(e);
     }
@@ -314,15 +347,15 @@ export default function ParkPage({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent" />
 
-        {/* Breadcrumb */}
+        {/* Back button */}
         <div className="absolute top-4 left-4">
-          <Link
-            href={isSignedIn ? "/visits" : "/parks"}
+          <button
+            onClick={() => router.back()}
             className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
-            {isSignedIn ? "My Visits" : "Parks"}
-          </Link>
+            Back
+          </button>
         </div>
 
         {/* Park name */}
@@ -554,11 +587,11 @@ export default function ParkPage({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={handleRemove}
-                    className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50"
+                    onClick={() => setShowEditDialog(true)}
+                    className="w-full text-xs"
                   >
-                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                    Remove Visit
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                    Edit Visit
                   </Button>
                 </>
               ) : visitStatus === "bucketList" ? (
@@ -694,6 +727,20 @@ export default function ParkPage({
         onOpenChange={setShowVisitDateDialog}
         parkName={park.fullName}
         onConfirm={handleConfirmVisitDate}
+      />
+      <EditVisitDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        parkName={park.fullName}
+        existing={{
+          visitedDate: visitedDate ?? new Date().toISOString(),
+          title: visitJournal.title,
+          notes: visitJournal.notes,
+          photos: visitJournal.photos,
+          visibility: visitJournal.visibility,
+        }}
+        onSave={(date, journal) => handleEditVisit(date, journal)}
+        onDelete={handleRemove}
       />
 
       {/* Lightbox */}
