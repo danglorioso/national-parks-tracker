@@ -85,13 +85,38 @@ export async function GET(
         : and(eq(visits.clerk_user_id, ownerId), eq(visits.is_bucket_list, false))
     );
 
-  const [userVisits, badges, allVisitsCount] = await Promise.all([
+  // For other profiles: hidden visits = those not returned by visibilityFilter
+  const hiddenVisibilityFilter = isOwnProfile
+    ? null
+    : isMutual
+      ? eq(visits.visibility, 'private')
+      : or(eq(visits.visibility, 'private'), eq(visits.visibility, 'friends'));
+
+  const [userVisits, badges, allVisitsCount, hiddenVisitDates] = await Promise.all([
     visitQuery,
     db.select().from(userBadges).where(eq(userBadges.clerk_user_id, ownerId)),
     db.select({ id: visits.id }).from(visits).where(
       and(eq(visits.clerk_user_id, ownerId), eq(visits.is_bucket_list, false))
     ),
+    hiddenVisibilityFilter
+      ? db.select({ visited_date: visits.visited_date }).from(visits).where(
+          and(eq(visits.clerk_user_id, ownerId), eq(visits.is_bucket_list, false), hiddenVisibilityFilter)
+        )
+      : Promise.resolve([]),
   ]);
+
+  // Aggregate hidden visits by year-month
+  const hiddenByMonth: Record<string, number> = {};
+  hiddenVisitDates.forEach(v => {
+    if (!v.visited_date) return;
+    const d = new Date(v.visited_date);
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+    hiddenByMonth[key] = (hiddenByMonth[key] ?? 0) + 1;
+  });
+  const hidden_months = Object.entries(hiddenByMonth).map(([key, count]) => {
+    const [year, month] = key.split('-').map(Number);
+    return { year, month, count };
+  });
 
   // Fetch Clerk avatar + name
   let avatarUrl: string | null = null;
@@ -116,6 +141,7 @@ export async function GET(
       viewer_follows: viewerFollowsOwner,
       is_own_profile: isOwnProfile,
       total_visit_count: allVisitsCount.length,
+      hidden_months,
     },
     visits: userVisits,
     badges,

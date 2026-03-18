@@ -26,6 +26,7 @@ interface ProfileInfo {
   full_name: string | null;
   bio: string | null;
   total_visit_count: number;
+  hidden_months: { year: number; month: number; count: number }[];
   avatar_url: string | null;
   follower_count: number;
   following_count: number;
@@ -465,13 +466,16 @@ export default function ProfilePage() {
               <>
                 {/* Visited */}
                 {ownTab === "visited" && (
-                  filtered.visited.length === 0
+                  visitedParks.length === 0
                     ? <EmptyState icon={<CheckCircle2 className="h-10 w-10 text-gray-300" />}
                         title={searchQuery ? "No parks match your search" : "No visits yet"}
                         subtitle={searchQuery ? "Try a different search term" : "Start exploring and log your first visit!"} />
-                    : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filtered.visited.map(p => <VisitedCard key={p.park_code} park={p} onEdit={handleEditVisit} onDelete={handleDeleteVisit} />)}
-                      </div>
+                    : <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {filtered.visited.map(p => <VisitedCard key={p.park_code} park={p} onEdit={handleEditVisit} onDelete={handleDeleteVisit} />)}
+                        </div>
+                        {!searchQuery && <OwnTimeline parks={visitedParks} onEdit={handleEditVisit} onDelete={handleDeleteVisit} />}
+                      </>
                 )}
 
                 {/* Bucket List */}
@@ -507,18 +511,9 @@ export default function ProfilePage() {
         {!isOwn && (
           <>
             {otherTab === "visits" && (
-              <div className="space-y-3">
-                {publicVisits.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
-                    No public visits yet.
-                  </div>
-                ) : (
-                  publicVisits
-                    .slice()
-                    .sort((a, b) => new Date(b.visited_date).getTime() - new Date(a.visited_date).getTime())
-                    .map(v => <PublicVisitCard key={v.id} visit={v} />)
-                )}
-              </div>
+              profile.total_visit_count === 0
+                ? <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">No visits yet.</div>
+                : <OtherTimeline visits={publicVisits} hiddenMonths={profile.hidden_months} />
             )}
             {otherTab === "badges" && <BadgesGrid earnedBadges={earnedBadges} loading={false} />}
           </>
@@ -669,6 +664,160 @@ function PublicVisitCard({ visit }: { visit: PublicVisit }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Timeline helpers ─────────────────────────────────────────────────────────
+
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function groupByMonth<T>(items: T[], getDate: (item: T) => string) {
+  const groups: Record<string, { year: number; month: number; items: T[] }> = {};
+  items.forEach(item => {
+    const d = new Date(getDate(item));
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (!groups[key]) groups[key] = { year: d.getFullYear(), month: d.getMonth(), items: [] };
+    groups[key].items.push(item);
+  });
+  return Object.values(groups).sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
+}
+
+function TimelineMonthHeader({ year, month, count }: { year: number; month: number; count: number }) {
+  return (
+    <div className="flex items-center gap-3 mb-3">
+      <h3 className="text-sm font-semibold text-gray-700">{MONTH_NAMES[month]} {year}</h3>
+      <div className="flex-1 h-px bg-gray-200" />
+      <span className="text-xs text-gray-400">{count} visit{count !== 1 ? "s" : ""}</span>
+    </div>
+  );
+}
+
+function OwnTimeline({ parks, onEdit, onDelete }: {
+  parks: ParkWithStatus[];
+  onEdit: (parkCode: string, date: Date, journal: JournalData) => void;
+  onDelete: (code: string) => void;
+}) {
+  if (parks.length === 0) return null;
+  const groups = groupByMonth(parks, p => p.visitedDate!);
+  return (
+    <div className="mt-10">
+      <h2 className="text-base font-semibold text-gray-900 mb-1">Journey</h2>
+      <p className="text-sm text-gray-400 mb-6">Your visits over time</p>
+      <div className="space-y-10">
+        {groups.map(group => (
+          <div key={`${group.year}-${group.month}`}>
+            <TimelineMonthHeader year={group.year} month={group.month} count={group.items.length} />
+            <div className="space-y-2">
+              {group.items
+                .slice()
+                .sort((a, b) => new Date(b.visitedDate!).getTime() - new Date(a.visitedDate!).getTime())
+                .map(park => (
+                  <TimelineVisitCard key={park.park_code} park={park} onEdit={onEdit} onDelete={onDelete} />
+                ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OtherTimeline({ visits, hiddenMonths }: {
+  visits: PublicVisit[];
+  hiddenMonths: { year: number; month: number; count: number }[];
+}) {
+  // Merge visible visits and ghost month entries into a unified grouped structure
+  const groups: Record<string, { year: number; month: number; visits: PublicVisit[]; hiddenCount: number }> = {};
+
+  visits.forEach(v => {
+    const d = new Date(v.visited_date);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (!groups[key]) groups[key] = { year: d.getFullYear(), month: d.getMonth(), visits: [], hiddenCount: 0 };
+    groups[key].visits.push(v);
+  });
+
+  hiddenMonths.forEach(({ year, month, count }) => {
+    const key = `${year}-${month - 1}`;
+    if (!groups[key]) groups[key] = { year, month: month - 1, visits: [], hiddenCount: 0 };
+    groups[key].hiddenCount += count;
+  });
+
+  const sorted = Object.values(groups).sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
+
+  return (
+    <div className="space-y-10">
+      {sorted.map(group => {
+        const total = group.visits.length + group.hiddenCount;
+        return (
+          <div key={`${group.year}-${group.month}`}>
+            <TimelineMonthHeader year={group.year} month={group.month} count={total} />
+            <div className="space-y-2">
+              {group.visits
+                .slice()
+                .sort((a, b) => new Date(b.visited_date).getTime() - new Date(a.visited_date).getTime())
+                .map(v => <PublicVisitCard key={v.id} visit={v} />)}
+              {Array.from({ length: group.hiddenCount }).map((_, i) => (
+                <GhostCard key={`ghost-${group.year}-${group.month}-${i}`} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TimelineVisitCard({ park, onEdit, onDelete }: {
+  park: ParkWithStatus;
+  onEdit: (parkCode: string, date: Date, journal: JournalData) => void;
+  onDelete: (code: string) => void;
+}) {
+  const [editOpen, setEditOpen] = useState(false);
+  return (
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="shrink-0 self-center">
+            {VISIBILITY_ICONS[park.visibility ?? 'public'] ?? VISIBILITY_ICONS['public']}
+          </div>
+          <div className="min-w-0">
+            <Link href={`/parks/${park.park_code}`} className="text-sm font-medium text-gray-900 hover:text-emerald-600 transition-colors line-clamp-1">
+              {park.name}
+            </Link>
+            {park.title && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{park.title}</p>}
+            <p className="text-xs text-gray-400 mt-0.5">
+              {park.visitedDate ? format(new Date(park.visitedDate), "MMMM d") : ""}
+            </p>
+          </div>
+        </div>
+        <button onClick={() => setEditOpen(true)} className="shrink-0 p-1 text-gray-300 hover:text-gray-600 transition-colors rounded">
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <EditVisitDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        parkName={park.name}
+        existing={{
+          visitedDate: park.visitedDate ?? new Date().toISOString(),
+          title: park.title,
+          notes: park.notes,
+          photos: park.photos,
+          visibility: park.visibility,
+        }}
+        onSave={(date, journal) => onEdit(park.park_code, date, journal)}
+        onDelete={() => onDelete(park.park_code)}
+      />
+    </>
+  );
+}
+
+function GhostCard() {
+  return (
+    <div className="bg-gray-50 rounded-xl border border-dashed border-gray-200 px-4 py-3 flex items-center gap-3">
+      <Lock className="w-3.5 h-3.5 text-gray-300 shrink-0 self-center" />
+      <p className="text-sm text-gray-400 italic">Visited a national park</p>
     </div>
   );
 }
