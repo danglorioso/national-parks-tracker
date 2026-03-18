@@ -217,19 +217,28 @@ export default function ExplorePage() {
       .finally(() => setActivityLoading(false));
   }, [activityFilter]);
 
-  // Build image map from featured
+  // Build image map from featured (NPS codes → image URL)
   const imageMap = new Map(featured.map(f => [f.park_code, f.images[0]?.url]));
+  // Alias DB codes that map to a combined NPS entry
+  const IMAGE_ALIASES: Record<string, string> = { sequ: 'seki', king: 'seki' };
+  Object.entries(IMAGE_ALIASES).forEach(([dbCode, npsCode]) => {
+    if (!imageMap.has(dbCode) && imageMap.has(npsCode)) {
+      imageMap.set(dbCode, imageMap.get(npsCode)!);
+    }
+  });
 
   // Extract unique states
   const allStates = [...new Set(parks.flatMap(p => p.states.split(",").map(s => s.trim())))].sort();
 
   // Filter parks
-  const filtered = parks.filter(p => {
-    if (query && !p.name.toLowerCase().includes(query.toLowerCase())) return false;
-    if (stateFilter && !p.states.split(",").map(s => s.trim()).includes(stateFilter)) return false;
-    if (activityParkCodes && !activityParkCodes.has(p.park_code)) return false;
-    return true;
-  });
+  const filtered = parks
+    .filter(p => {
+      if (query && !p.name.toLowerCase().includes(query.toLowerCase())) return false;
+      if (stateFilter && !p.states.split(",").map(s => s.trim()).includes(stateFilter)) return false;
+      if (activityParkCodes && !activityParkCodes.has(p.park_code)) return false;
+      return true;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const hasFilters = !!stateFilter || !!activityFilter || !!query;
 
