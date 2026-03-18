@@ -1,17 +1,24 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { Bell, Search, UserRound } from "lucide-react";
 import Logo from "./Logo";
 import Link from "next/link";
 import AccountDropdown from "./AccountDropdown";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Skeleton } from "./ui/skeleton";
 
 interface NavBarProps {
     visitedParksCount: number;
     totalParksCount: number;
+}
+
+interface SearchResult {
+    username: string;
+    full_name: string | null;
+    avatar_url: string | null;
+    is_self: boolean;
 }
 
 export default function NavBar({ visitedParksCount, totalParksCount }: NavBarProps) {
@@ -20,7 +27,36 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
     const { signOut } = useClerk();
     const dropdownRef = useRef<HTMLDivElement>(null);
     const pathname = usePathname();
+    const router = useRouter();
     const [username, setUsername] = useState<string | null>(null);
+
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const searchRef = useRef<HTMLDivElement>(null);
+    const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const runSearch = useCallback((q: string) => {
+        if (!q.trim()) { setSearchResults([]); setSearchOpen(false); return; }
+        fetch(`/api/users/search?q=${encodeURIComponent(q)}`)
+            .then(r => r.ok ? r.json() : [])
+            .then((data: SearchResult[]) => { setSearchResults(data); setSearchOpen(data.length > 0); })
+            .catch(() => {});
+    }, []);
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const q = e.target.value;
+        setSearchQuery(q);
+        if (searchTimer.current) clearTimeout(searchTimer.current);
+        searchTimer.current = setTimeout(() => runSearch(q), 250);
+    };
+
+    const handleSearchSelect = (result: SearchResult) => {
+        setSearchQuery("");
+        setSearchResults([]);
+        setSearchOpen(false);
+        router.push(`/profile/${result.username}`);
+    };
 
     useEffect(() => {
         if (!isLoaded || !user) return;
@@ -37,22 +73,19 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
     const emailVerified = user?.emailAddresses?.find(email => email.id === user.primaryEmailAddressId)?.verification?.status === 'verified';
     const profileImageUrl = user?.imageUrl || '';
 
-    // Close dropdown when clicking outside
+    // Close dropdowns when clicking outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setAccountDropdownOpen(false);
             }
+            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+                setSearchOpen(false);
+            }
         }
-
-        if (accountDropdownOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [accountDropdownOpen]);
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const handleSignOut = async () => {
         await signOut();
@@ -114,6 +147,43 @@ export default function NavBar({ visitedParksCount, totalParksCount }: NavBarPro
                             </Link>
                         </div>
                     </div>
+
+                    {/* Search */}
+                    <div ref={searchRef} className="relative hidden md:block w-56">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={handleSearchChange}
+                            onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
+                            placeholder="Find users…"
+                            className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-100 border border-transparent rounded-lg outline-none focus:bg-white focus:border-gray-300 transition-colors"
+                        />
+                        {searchOpen && searchResults.length > 0 && (
+                            <div className="absolute top-full mt-1.5 left-0 w-72 bg-white rounded-xl border border-gray-200 shadow-lg z-50 overflow-hidden">
+                                {searchResults.map(result => (
+                                    <button
+                                        key={result.username}
+                                        onClick={() => handleSearchSelect(result)}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                                    >
+                                        {result.avatar_url ? (
+                                            <img src={result.avatar_url} alt={result.username} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                                                <UserRound className="w-4 h-4 text-emerald-600" />
+                                            </div>
+                                        )}
+                                        <div className="min-w-0">
+                                            {result.full_name && <p className="text-sm font-medium text-gray-900 truncate">{result.full_name}</p>}
+                                            <p className="text-xs text-gray-500 truncate">@{result.username}{result.is_self ? " (you)" : ""}</p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Right Side */}
                     <div className="flex items-center space-x-4">
 

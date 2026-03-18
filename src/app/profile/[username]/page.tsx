@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface ProfileInfo {
   clerk_user_id: string;
   username: string;
+  full_name: string | null;
   bio: string | null;
   avatar_url: string | null;
   follower_count: number;
@@ -322,10 +323,22 @@ export default function ProfilePage() {
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">@{profile.username}</h1>
-                  {profile.bio && <p className="text-sm text-gray-500 mt-0.5">{profile.bio}</p>}
+              <div className="flex items-start gap-3 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {profile.full_name && (
+                      <h1 className="text-xl font-bold text-gray-900">{profile.full_name}</h1>
+                    )}
+                    {isOwn && (
+                      <Link href="/settings" className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <Pencil className="w-4 h-4" />
+                      </Link>
+                    )}
+                  </div>
+                  <p className={`text-gray-500 ${profile.full_name ? "text-sm mt-0.5" : "text-xl font-bold text-gray-900"}`}>
+                    @{profile.username}
+                  </p>
+                  {profile.bio && <p className="text-sm text-gray-500 mt-1">{profile.bio}</p>}
                 </div>
                 {!isOwn && (
                   <Button
@@ -338,14 +351,9 @@ export default function ProfilePage() {
                     {profile.viewer_follows ? "Unfollow" : "Follow"}
                   </Button>
                 )}
-                {isOwn && (
-                  <Link href="/settings">
-                    <Button variant="outline" size="sm">Edit profile</Button>
-                  </Link>
-                )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-2 text-sm text-gray-600">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mt-3 text-sm text-gray-600">
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-4 h-4 text-emerald-500" />
                   <span>
@@ -364,6 +372,7 @@ export default function ProfilePage() {
                 </div>
                 <span><span className="font-semibold text-gray-900">{profile.following_count}</span> following</span>
               </div>
+
             </div>
 
             {/* Progress card — own profile only */}

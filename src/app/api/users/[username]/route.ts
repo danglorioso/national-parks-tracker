@@ -90,12 +90,15 @@ export async function GET(
     db.select().from(userBadges).where(eq(userBadges.clerk_user_id, ownerId)),
   ]);
 
-  // Fetch Clerk avatar
+  // Fetch Clerk avatar + name
   let avatarUrl: string | null = null;
+  let fullName: string | null = null;
   try {
     const client = await clerkClient();
     const clerkUser = await client.users.getUser(ownerId);
     avatarUrl = clerkUser.imageUrl ?? null;
+    const parts = [clerkUser.firstName, clerkUser.lastName].filter(Boolean);
+    fullName = parts.length > 0 ? parts.join(' ') : null;
   } catch {
     // non-critical
   }
@@ -104,6 +107,7 @@ export async function GET(
     profile: {
       ...profile,
       avatar_url: avatarUrl,
+      full_name: fullName,
       follower_count: followerRows.length,
       following_count: followingRows.length,
       viewer_follows: viewerFollowsOwner,
