@@ -157,6 +157,16 @@ export default function NavBar() {
                             >
                                 Feed
                             </Link>
+                            <Link
+                                href="/parks"
+                                className={`px-4 py-2 rounded-lg font-medium transition ${
+                                    pathname === '/parks'
+                                        ? 'font-semibold text-green-600 bg-green-50'
+                                        : 'text-gray-600 hover:bg-gray-100'
+                                }`}
+                            >
+                                Explore
+                            </Link>
                         </div>
                     </div>
 
