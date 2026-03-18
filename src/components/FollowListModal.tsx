@@ -186,7 +186,7 @@ export default function FollowListModal({
                         onClick={() => isFollowing ? handleUnfollow(u.clerk_user_id) : handleFollow(u.clerk_user_id)}
                         className={`shrink-0 h-8 text-xs px-3 ${!isFollowing ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
                       >
-                        {isFollowing ? "Following" : "Follow"}
+                        {isFollowing ? "Unfollow" : "Follow"}
                       </Button>
                     )
                   )}
