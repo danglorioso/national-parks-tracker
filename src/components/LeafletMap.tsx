@@ -147,7 +147,7 @@ export default function LeafletMap({
                         onClick={() => onEditVisit(park.park_code)}
                         className="w-full px-3 py-1.5 border border-gray-300 text-gray-600 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                       >
-                        <CheckCircle2 className="w-4 h-4" />
+                        <Pencil className="w-4 h-4" />
                         Edit Visit
                       </button>
                     )
