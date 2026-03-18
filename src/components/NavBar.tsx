@@ -188,7 +188,10 @@ export default function NavBar() {
                             <div className="absolute top-full mt-1.5 right-0 w-80 bg-white rounded-xl border border-gray-200 shadow-lg z-50 overflow-hidden">
                                 {searchResults.parks.length > 0 && (
                                     <>
-                                        <p className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Parks</p>
+                                        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Parks</p>
+                                            <Link href="/parks" onClick={() => { setSearchOpen(false); setSearchQuery(""); }} className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 transition-colors">All parks →</Link>
+                                        </div>
                                         {searchResults.parks.map(park => (
                                             <button
                                                 key={park.park_code}
