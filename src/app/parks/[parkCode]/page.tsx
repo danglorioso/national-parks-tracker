@@ -347,8 +347,8 @@ export default function ParkPage({
         {/* Back button */}
         <div className="absolute top-4 left-4">
           <button
-            onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm transition-colors"
+            onClick={() => window.history.length > 1 ? router.back() : router.push('/map')}
+            className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm transition-colors cursor-pointer px-2.5 py-1.5 rounded-lg hover:bg-white/15"
           >
             <ChevronLeft className="h-4 w-4" />
             Back
