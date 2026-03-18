@@ -4,6 +4,7 @@ import { Bell, Search, UserRound, MapPin } from "lucide-react";
 import Logo from "./Logo";
 import Link from "next/link";
 import AccountDropdown from "./AccountDropdown";
+import EditProfileDialog from "./EditProfileDialog";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { usePathname, useRouter } from "next/navigation";
@@ -37,6 +38,8 @@ export default function NavBar() {
     const [username, setUsername] = useState<string | null>(null);
     const [visitedParksCount, setVisitedParksCount] = useState(0);
     const [totalParksCount, setTotalParksCount] = useState(0);
+    const [bio, setBio] = useState<string>("");
+    const [editProfileOpen, setEditProfileOpen] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<SearchResults>({ users: [], parks: [] });
@@ -77,6 +80,7 @@ export default function NavBar() {
             .then(data => {
                 if (!data) return;
                 if (data.username) setUsername(data.username);
+                if (data.bio != null) setBio(data.bio ?? "");
                 if (data.visited_count != null) setVisitedParksCount(data.visited_count);
                 if (data.total_parks_count != null) setTotalParksCount(data.total_parks_count);
             })
@@ -110,6 +114,7 @@ export default function NavBar() {
     };
 
     return (
+        <>
         <nav className="bg-gray-50 border-b border-gray-200 sticky top-0 z-[1000]">
             <div className="max-w-full px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
@@ -242,12 +247,23 @@ export default function NavBar() {
                                 />) : (<Skeleton className="w-10 h-10 rounded-full bg-gray-300 border-green-500 border-2" />)}
                             </button>
                             
-                            <AccountDropdown isOpen={accountDropdownOpen} onSignOut={handleSignOut} username={username} />
+                            <AccountDropdown isOpen={accountDropdownOpen} onSignOut={handleSignOut} username={username} onEditProfile={() => { setAccountDropdownOpen(false); setEditProfileOpen(true); }} />
                         </div>
-                        
+
                     </div>
                 </div>
             </div>
         </nav>
+
+        <EditProfileDialog
+            open={editProfileOpen}
+            onOpenChange={setEditProfileOpen}
+            initialUsername={username ?? ""}
+            initialBio={bio}
+            onSaved={(newUsername, _bio, _fullName) => {
+                setUsername(newUsername);
+            }}
+        />
+        </>
     );
 }

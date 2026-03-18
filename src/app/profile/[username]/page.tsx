@@ -8,6 +8,7 @@ import Nav from "@/components/NavBar";
 import ProgressCard from "@/components/ProgressCard";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
 import EditVisitDialog from "@/components/EditVisitDialog";
+import EditProfileDialog from "@/components/EditProfileDialog";
 import { ALL_BADGES, TIER_CONFIG, type BadgeDefinition } from "@/lib/badges";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
@@ -96,6 +97,7 @@ export default function ProfilePage() {
   const [pendingParkCode, setPendingParkCode] = useState<string | null>(null);
   const [pendingParkName, setPendingParkName] = useState("");
   const [selectedBadge, setSelectedBadge] = useState<{ badge: BadgeDefinition; earnedAt: string | null } | null>(null);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/");
@@ -334,9 +336,9 @@ export default function ProfilePage() {
                       <h1 className="text-xl font-bold text-gray-900">{profile.full_name}</h1>
                     )}
                     {isOwn && (
-                      <Link href="/settings" className="text-gray-400 hover:text-gray-600 transition-colors">
+                      <button onClick={() => setEditProfileOpen(true)} className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
                         <Pencil className="w-4 h-4" />
-                      </Link>
+                      </button>
                     )}
                   </div>
                   <p className={`text-gray-500 ${profile.full_name ? "text-sm mt-0.5" : "text-xl font-bold text-gray-900"}`}>
@@ -567,6 +569,19 @@ export default function ProfilePage() {
           badge={selectedBadge.badge}
           earnedAt={selectedBadge.earnedAt}
           onClose={() => setSelectedBadge(null)}
+        />
+      )}
+
+      {isOwn && (
+        <EditProfileDialog
+          open={editProfileOpen}
+          onOpenChange={setEditProfileOpen}
+          initialUsername={profile.username}
+          initialBio={profile.bio ?? ""}
+          onSaved={(newUsername, newBio, newFullName) => {
+            setProfile(p => p ? { ...p, username: newUsername, bio: newBio, full_name: newFullName } : null);
+            if (newUsername !== profile.username) router.replace(`/profile/${newUsername}`);
+          }}
         />
       )}
     </div>
