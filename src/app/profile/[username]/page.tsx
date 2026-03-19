@@ -383,14 +383,14 @@ export default function ProfilePage() {
                 )}
                 <button
                   onClick={() => { setFollowModalTab("followers"); setFollowModalOpen(true); }}
-                  className="flex items-center gap-1.5 hover:text-gray-900 transition-colors"
+                  className="flex items-center gap-1.5 hover:text-gray-900 transition-colors cursor-pointer"
                 >
                   <Users className="w-4 h-4 text-gray-400" />
                   <span><span className="font-semibold text-gray-900">{profile.follower_count}</span> followers</span>
                 </button>
                 <button
                   onClick={() => { setFollowModalTab("following"); setFollowModalOpen(true); }}
-                  className="hover:text-gray-900 transition-colors"
+                  className="hover:text-gray-900 transition-colors cursor-pointer"
                 >
                   <span><span className="font-semibold text-gray-900">{profile.following_count}</span> following</span>
                 </button>

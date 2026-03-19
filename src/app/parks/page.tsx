@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
@@ -168,7 +168,7 @@ function ParkCard({ park, image }: { park: Park; image?: string }) {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function ExplorePage() {
+function ExplorePageInner() {
   const { isSignedIn, isLoaded } = useUser();
   const searchParams = useSearchParams();
 
@@ -437,5 +437,13 @@ export default function ExplorePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ExplorePage() {
+  return (
+    <Suspense>
+      <ExplorePageInner />
+    </Suspense>
   );
 }
