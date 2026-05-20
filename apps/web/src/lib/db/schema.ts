@@ -1,4 +1,7 @@
-import { pgTable, text, timestamp, varchar, integer, serial, jsonb, boolean, unique } from 'drizzle-orm/pg-core';
+import {
+  pgTable, text, timestamp, varchar, integer,
+  serial, jsonb, boolean, unique, primaryKey,
+} from 'drizzle-orm/pg-core';
 
 export const parks = pgTable('parks', {
   park_code: varchar('park_code', { length: 10 }).notNull().unique().primaryKey(),
@@ -10,11 +13,21 @@ export const parks = pgTable('parks', {
   created_at: timestamp('created_at').defaultNow(),
 });
 
+export const userProfiles = pgTable('user_profiles', {
+  clerk_user_id: varchar('clerk_user_id', { length: 255 }).notNull().primaryKey(),
+  username: varchar('username', { length: 50 }).notNull().unique(),
+  display_name: varchar('display_name', { length: 100 }),
+  bio: text('bio'),
+  avatar_url: text('avatar_url'),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+});
+
 export const visits = pgTable('visits', {
   id: serial('id').primaryKey(),
   clerk_user_id: varchar('clerk_user_id', { length: 255 }).notNull(),
   park_code: varchar('park_code', { length: 10 }).notNull().references(() => parks.park_code),
-  visited_date: timestamp('visited_date').notNull(),
+  visited_date: timestamp('visited_date'), // null = bucket list item
   rating: integer('rating'),
   title: varchar('title', { length: 255 }),
   notes: text('notes'),
@@ -25,17 +38,13 @@ export const visits = pgTable('visits', {
   updated_at: timestamp('updated_at').defaultNow(),
 });
 
-export const userBadges = pgTable('user_badges', {
+export const posts = pgTable('posts', {
   id: serial('id').primaryKey(),
   clerk_user_id: varchar('clerk_user_id', { length: 255 }).notNull(),
-  badge_id: varchar('badge_id', { length: 100 }).notNull(),
-  earned_at: timestamp('earned_at').defaultNow().notNull(),
-});
-
-export const userProfiles = pgTable('user_profiles', {
-  clerk_user_id: varchar('clerk_user_id', { length: 255 }).notNull().primaryKey(),
-  username: varchar('username', { length: 50 }).notNull().unique(),
-  bio: text('bio'),
+  park_code: varchar('park_code', { length: 10 }).references(() => parks.park_code),
+  visit_id: integer('visit_id').references(() => visits.id, { onDelete: 'set null' }),
+  caption: text('caption'),
+  photos: jsonb('photos').$type<{ url: string; key: string; name: string }[]>(),
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
 });
@@ -47,13 +56,37 @@ export const follows = pgTable('follows', {
   created_at: timestamp('created_at').defaultNow(),
 }, (t) => [unique().on(t.follower_id, t.following_id)]);
 
+export const likes = pgTable('likes', {
+  user_id: varchar('user_id', { length: 255 }).notNull(),
+  post_id: integer('post_id').notNull().references(() => posts.id, { onDelete: 'cascade' }),
+  created_at: timestamp('created_at').defaultNow(),
+}, (t) => [primaryKey({ columns: [t.user_id, t.post_id] })]);
+
+export const comments = pgTable('comments', {
+  id: serial('id').primaryKey(),
+  user_id: varchar('user_id', { length: 255 }).notNull(),
+  post_id: integer('post_id').notNull().references(() => posts.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  created_at: timestamp('created_at').defaultNow(),
+});
+
+export const userBadges = pgTable('user_badges', {
+  id: serial('id').primaryKey(),
+  clerk_user_id: varchar('clerk_user_id', { length: 255 }).notNull(),
+  badge_id: varchar('badge_id', { length: 100 }).notNull(),
+  earned_at: timestamp('earned_at').defaultNow().notNull(),
+}, (t) => [unique().on(t.clerk_user_id, t.badge_id)]);
+
 export type Park = typeof parks.$inferSelect;
 export type NewPark = typeof parks.$inferInsert;
-export type Visit = typeof visits.$inferSelect;
-export type NewVisit = typeof visits.$inferInsert;
-export type UserBadge = typeof userBadges.$inferSelect;
-export type NewUserBadge = typeof userBadges.$inferInsert;
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type NewUserProfile = typeof userProfiles.$inferInsert;
+export type Visit = typeof visits.$inferSelect;
+export type NewVisit = typeof visits.$inferInsert;
+export type Post = typeof posts.$inferSelect;
+export type NewPost = typeof posts.$inferInsert;
 export type Follow = typeof follows.$inferSelect;
-export type NewFollow = typeof follows.$inferInsert;
+export type Like = typeof likes.$inferSelect;
+export type Comment = typeof comments.$inferSelect;
+export type NewComment = typeof comments.$inferInsert;
+export type UserBadge = typeof userBadges.$inferSelect;

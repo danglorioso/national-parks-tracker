@@ -1,4 +1,5 @@
 export type ParkStatus = 'unvisited' | 'bucket_list' | 'visited';
+export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'platinum' | 'legendary';
 
 export interface Park {
   park_code: string;
@@ -22,28 +23,99 @@ export interface Visit {
   park_code: string;
   visited_date: Date | null;
   rating: number | null;
+  title: string | null;
   notes: string | null;
   photos: PhotoMeta[] | null;
+  visibility: string | null;
   is_bucket_list: boolean | null;
   created_at: Date | null;
   updated_at: Date | null;
 }
 
+export interface UserProfile {
+  clerk_user_id: string;
+  username: string;
+  display_name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+}
+
+export interface PublicProfile extends UserProfile {
+  parks_visited: number;
+  follower_count: number;
+  following_count: number;
+  is_following: boolean;
+}
+
+export interface Post {
+  id: number;
+  clerk_user_id: string;
+  park_code: string | null;
+  visit_id: number | null;
+  caption: string | null;
+  photos: PhotoMeta[] | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+}
+
+export interface EnrichedPost extends Post {
+  park_name: string | null;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  like_count: number;
+  comment_count: number;
+  liked_by_me: boolean;
+}
+
+export interface Follow {
+  clerk_user_id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  followed_at: Date | null;
+}
+
+export interface EnrichedComment {
+  id: number;
+  content: string;
+  created_at: Date | null;
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  emoji: string;
+  tier: BadgeTier;
+  earned: boolean;
+  earned_at: Date | null;
+  progress_current: number | null;
+  progress_target: number | null;
+}
+
+export interface UserStats {
+  parksVisited: number;
+  totalParks: number;
+  statesVisited: number;
+  bucketListCount: number;
+  parksThisYear: number;
+  maxParksInAYear: number;
+}
+
+export interface BadgesResponse {
+  badges: Badge[];
+  stats: UserStats;
+}
+
+// Convenience type for park + visit status on map/list views
 export interface ParkWithStatus extends Park {
   status: ParkStatus;
   visit?: Visit;
-}
-
-// Shapes returned by /api/parks and /api/visits
-export interface ApiPark extends Park {
-  status: ParkStatus;
-}
-
-export interface ApiVisitResponse {
-  park_code: string;
-  visited_date: string | null;
-  rating: number | null;
-  notes: string | null;
-  photos: PhotoMeta[] | null;
-  is_bucket_list: boolean | null;
 }
