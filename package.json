@@ -1,53 +1,20 @@
 {
-  "name": "national-parks-tracker",
-  "version": "0.1.0",
+  "name": "parkquest",
+  "version": "0.0.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@clerk/nextjs": "^6.36.5",
-    "@hookform/resolvers": "^5.2.2",
-    "@neondatabase/serverless": "^1.0.2",
-    "@radix-ui/react-alert-dialog": "^1.1.15",
-    "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-label": "^2.1.8",
-    "@radix-ui/react-popover": "^1.1.15",
-    "@radix-ui/react-slot": "^1.2.4",
-    "@uploadthing/react": "^7.3.3",
-    "@vercel/analytics": "^1.6.1",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "date-fns": "^4.1.0",
-    "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.45.1",
-    "leaflet": "^1.9.4",
-    "lucide-react": "^0.562.0",
-    "next": "16.1.1",
-    "react": "19.2.3",
-    "react-day-picker": "^9.13.0",
-    "react-dom": "19.2.3",
-    "react-hook-form": "^7.69.0",
-    "react-leaflet": "^5.0.0",
-    "svix": "^1.82.0",
-    "tailwind-merge": "^3.4.0",
-    "uploadthing": "^7.7.4",
-    "zod": "^4.2.1"
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "db:push": "turbo db:push",
+    "db:generate": "turbo db:generate",
+    "db:studio": "turbo db:studio"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/leaflet": "^1.9.21",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "drizzle-kit": "^0.31.8",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.1",
-    "tailwindcss": "^4",
-    "tw-animate-css": "^1.4.0",
-    "typescript": "^5"
+    "turbo": "^2.5.3"
   }
 }
