@@ -1,0 +1,66 @@
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
+import type { EnrichedPost } from '@parkquest/types';
+
+interface Props {
+  post: EnrichedPost;
+  onLike: () => void;
+  onComment: () => void;
+}
+
+export function PostCard({ post, onLike, onComment }: Props) {
+  const firstPhoto = post.photos?.[0];
+  const authorName = post.display_name ?? post.username ?? 'Unknown';
+  const initial = authorName[0]?.toUpperCase() ?? '?';
+
+  return (
+    <View className="bg-white mb-px border-b border-gray-100">
+      <View className="flex-row items-center px-4 py-3">
+        <View className="w-9 h-9 rounded-full bg-brand-100 items-center justify-center mr-3 overflow-hidden">
+          {post.avatar_url
+            ? <Image source={{ uri: post.avatar_url }} style={{ width: 36, height: 36 }} contentFit="cover" />
+            : <Text className="text-brand-700 font-bold text-sm">{initial}</Text>}
+        </View>
+        <View className="flex-1">
+          <Text className="font-semibold text-gray-900 text-sm">{authorName}</Text>
+          {post.park_name
+            ? <Text className="text-xs text-gray-400" numberOfLines={1}>📍 {post.park_name}</Text>
+            : null}
+        </View>
+      </View>
+
+      {firstPhoto
+        ? <Image source={{ uri: firstPhoto.url }} style={{ width: '100%', aspectRatio: 1 }} contentFit="cover" />
+        : null}
+
+      <View className="flex-row px-4 py-2 gap-5">
+        <TouchableOpacity className="flex-row items-center gap-1.5" onPress={onLike}>
+          <Ionicons
+            name={post.liked_by_me ? 'heart' : 'heart-outline'}
+            size={24}
+            color={post.liked_by_me ? '#ef4444' : '#374151'}
+          />
+          {post.like_count > 0
+            ? <Text className="text-sm text-gray-600">{post.like_count}</Text>
+            : null}
+        </TouchableOpacity>
+        <TouchableOpacity className="flex-row items-center gap-1.5" onPress={onComment}>
+          <Ionicons name="chatbubble-outline" size={22} color="#374151" />
+          {post.comment_count > 0
+            ? <Text className="text-sm text-gray-600">{post.comment_count}</Text>
+            : null}
+        </TouchableOpacity>
+      </View>
+
+      {post.caption
+        ? <View className="px-4 pb-4">
+            <Text className="text-sm text-gray-800 leading-5">
+              <Text className="font-semibold">{authorName} </Text>
+              {post.caption}
+            </Text>
+          </View>
+        : null}
+    </View>
+  );
+}
