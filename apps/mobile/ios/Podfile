@@ -52,14 +52,14 @@ target 'ParkQuest' do
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
 
-    installer.pods_project.targets.each do |target|
-      target.build_configurations.each do |build_config|
-        # fmt is compiled with C++20 by default, which makes consteval strict in
-        # Xcode 26. Downgrade fmt alone to C++17 where consteval doesn't exist.
-        if target.name == 'fmt'
-          build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++17'
-        end
-      end
+    # fmt uses 'consteval' in C++20 mode, which Xcode 26's Clang enforces strictly.
+    # Replacing with 'constexpr' is safe: format strings still validate, just not
+    # guaranteed at compile time. This patch runs after every pod install.
+    fmt_headers = Dir.glob("#{installer.sandbox.root}/fmt/include/fmt/*.h")
+    fmt_headers.each do |header|
+      content = File.read(header)
+      patched  = content.gsub(/\bconsteval\b/, 'constexpr')
+      File.write(header, patched) if patched != content
     end
 
     # This is necessary for Xcode 14+, because it signs resource bundles by default
