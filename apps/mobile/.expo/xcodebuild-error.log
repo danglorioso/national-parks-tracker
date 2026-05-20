@@ -1,0 +1,6 @@
+2026-05-20 15:05:25.345 xcodebuild[41347:9564034] Writing error result bundle to /var/folders/3n/whp7byyn1c1596dfgf9jhl240000gn/T/ResultBundle_2026-20-05_15-05-0025.xcresult
+xcodebuild: error: Unable to find a destination matching the provided destination specifier:
+		{ id:806531BF-8C7F-4C9A-902A-E2ABE34EC925 }
+
+	Ineligible destinations for the "ParkQuest" scheme:
+		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device, error:iOS 26.5 is not installed. Please download and install the platform from Xcode > Settings > Components. }

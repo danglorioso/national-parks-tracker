@@ -1,0 +1,3 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project /Users/dan/CS/parkquest/apps/mobile/ios/ParkQuest.xcodeproj -configuration Debug -scheme ParkQuest -destination id=806531BF-8C7F-4C9A-902A-E2ABE34EC925
+
