@@ -23,6 +23,9 @@ export default function SignInModal({ open, onOpenChange, switchToSignUp }: Sign
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
+  const [needsMfa, setNeedsMfa] = useState(false);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaStrategy, setMfaStrategy] = useState<"totp" | "phone_code" | "email_code">("totp");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,12 +45,51 @@ export default function SignInModal({ open, onOpenChange, switchToSignUp }: Sign
         onOpenChange(false);
         router.push("/map");
         router.refresh();
+      } else if (result.status === "needs_second_factor") {
+        const supported = result.supportedSecondFactors ?? [];
+        const emailFactor = supported.find((f: { strategy: string }) => f.strategy === "email_code") as { emailAddressId: string } | undefined;
+        const phoneFactor = supported.find((f: { strategy: string }) => f.strategy === "phone_code") as { phoneNumberId: string } | undefined;
+        if (emailFactor) {
+          await signIn.prepareSecondFactor({ strategy: "email_code", emailAddressId: emailFactor.emailAddressId });
+          setMfaStrategy("email_code");
+        } else if (phoneFactor) {
+          await signIn.prepareSecondFactor({ strategy: "phone_code", phoneNumberId: phoneFactor.phoneNumberId });
+          setMfaStrategy("phone_code");
+        } else {
+          setMfaStrategy("totp");
+        }
+        setNeedsMfa(true);
       } else {
         setError("Sign in incomplete. Please try again.");
       }
     } catch (err: unknown) {
       const error = err as { errors?: Array<{ message?: string }> };
       setError(error?.errors?.[0]?.message || "An error occurred during sign in");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+
+    setError("");
+    setLoading(true);
+
+    try {
+      const result = await signIn.attemptSecondFactor({ strategy: mfaStrategy, code: mfaCode });
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        onOpenChange(false);
+        router.push("/map");
+        router.refresh();
+      } else {
+        setError("Verification incomplete. Please try again.");
+      }
+    } catch (err: unknown) {
+      const error = err as { errors?: Array<{ message?: string }> };
+      setError(error?.errors?.[0]?.message || "Invalid code");
     } finally {
       setLoading(false);
     }
@@ -70,6 +112,69 @@ export default function SignInModal({ open, onOpenChange, switchToSignUp }: Sign
       setError(error?.errors?.[0]?.message || "An error occurred during authentication");
     }
   };
+
+  if (needsMfa) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="space-y-4">
+            <div className="flex items-center justify-center gap-2">
+              <Trees className="w-8 h-8 text-green-600" />
+              <DialogTitle className="text-2xl font-bold text-gray-900">ParkQuest</DialogTitle>
+            </div>
+            <DialogDescription className="text-center text-base">
+              {mfaStrategy === "email_code"
+                ? `Enter the code sent to ${email}`
+                : mfaStrategy === "phone_code"
+                ? "Enter the code sent to your phone"
+                : "Enter your authenticator app code"}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleMfa} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="mfa-code">Verification Code</Label>
+              <Input
+                id="mfa-code"
+                type="text"
+                placeholder="6-digit code"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+                required
+                disabled={loading || !isLoaded}
+                className="w-full tracking-widest"
+                maxLength={6}
+                autoFocus
+              />
+            </div>
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                {error}
+              </div>
+            )}
+            <Button
+              type="submit"
+              className="w-full bg-green-600 hover:bg-green-700 text-white hover:cursor-pointer"
+              disabled={loading || !isLoaded}
+            >
+              {loading ? "Verifying..." : "Verify"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setNeedsMfa(false);
+                setMfaCode("");
+                setError("");
+              }}
+            >
+              Back
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
