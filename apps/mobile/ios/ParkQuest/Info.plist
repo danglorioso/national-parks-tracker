@@ -28,7 +28,13 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>parkquest</string>
-          <string>com.parkquest.app</string>
+          <string>com.danglorioso.parkquest</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>exp+parkquest</string>
         </array>
       </dict>
     </array>

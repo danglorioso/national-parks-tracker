@@ -3,7 +3,7 @@ import '../global.css';
 import { useEffect } from 'react';
 import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/clerk-expo';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -24,13 +24,14 @@ function AuthSync() {
   const { isSignedIn, isLoaded } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const navState = useRootNavigationState();
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !navState?.key) return;
     const inAuth = segments[0] === '(auth)';
     if (isSignedIn && inAuth) router.replace('/(tabs)');
     if (!isSignedIn && !inAuth) router.replace('/(auth)/sign-in');
-  }, [isLoaded, isSignedIn, segments]);
+  }, [isLoaded, isSignedIn, segments, navState?.key]);
 
   return null;
 }

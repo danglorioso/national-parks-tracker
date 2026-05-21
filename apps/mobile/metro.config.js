@@ -14,4 +14,24 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
+// Hard-pin singleton packages to the monorepo root. Uses Metro's own resolver
+// with a spoofed originModulePath so it always finds the root copy.
+const SINGLETONS = ['react', 'react-native'];
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const match = SINGLETONS.find(
+    s => moduleName === s || moduleName.startsWith(s + '/')
+  );
+  if (match) {
+    return context.resolveRequest(
+      {
+        ...context,
+        originModulePath: path.resolve(monorepoRoot, 'node_modules', match, 'index.js'),
+      },
+      moduleName,
+      platform
+    );
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 module.exports = withNativeWind(config, { input: './global.css' });

@@ -4,11 +4,13 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { getOwnProfile, getVisits, getBadges } from '@/lib/api';
 
 export default function ProfileScreen() {
   const { getToken, signOut } = useAuth();
   const { user } = useUser();
+  const router = useRouter();
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile', 'me'],
@@ -25,9 +27,10 @@ export default function ProfileScreen() {
     queryFn: async () => { const t = await getToken(); return getBadges(t!); },
   });
 
-  const parksVisited = visits?.filter(v => !v.is_bucket_list).length ?? 0;
-  const bucketList = visits?.filter(v => v.is_bucket_list).length ?? 0;
-  const earnedBadges = badgesData?.badges.filter(b => b.earned) ?? [];
+  const visitList = Array.isArray(visits) ? visits : [];
+  const parksVisited = visitList.filter(v => !v.is_bucket_list).length;
+  const bucketList = visitList.filter(v => v.is_bucket_list).length;
+  const earnedBadges = Array.isArray(badgesData?.badges) ? badgesData.badges.filter(b => b.earned) : [];
   const avatarUri = profile?.avatar_url ?? user?.imageUrl;
   const displayName = profile?.display_name ?? user?.fullName ?? profile?.username ?? 'You';
 
@@ -43,7 +46,7 @@ export default function ProfileScreen() {
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
       <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100">
         <Text className="text-lg font-bold text-gray-900">Profile</Text>
-        <TouchableOpacity onPress={() => signOut()}>
+        <TouchableOpacity onPress={() => signOut().then(() => router.replace('/(auth)/sign-in'))}>
           <Ionicons name="log-out-outline" size={24} color="#6b7280" />
         </TouchableOpacity>
       </View>
@@ -99,11 +102,11 @@ export default function ProfileScreen() {
         )}
 
         {/* Recent visits */}
-        {visits && visits.filter(v => !v.is_bucket_list).length > 0 && (
+        {visitList.filter(v => !v.is_bucket_list).length > 0 && (
           <View className="px-4 pt-5 pb-8">
             <Text className="text-base font-semibold text-gray-900 mb-3">Recent Parks</Text>
             <View className="gap-2">
-              {visits
+              {visitList
                 .filter(v => !v.is_bucket_list)
                 .slice(0, 5)
                 .map(v => (

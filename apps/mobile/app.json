@@ -10,7 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.parkquest.app"
+      "bundleIdentifier": "com.danglorioso.parkquest",
+      "developmentTeam": "U8AK9PG243"
     },
     "android": {
       "adaptiveIcon": {

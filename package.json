@@ -13,5 +13,13 @@
   },
   "devDependencies": {
     "turbo": "^2.5.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "expo-auth-session": "^5.4.0",
+      "expo-application": "^6.0.2",
+      "expo-crypto": "^14.0.2",
+      "expo-constants": "^17.0.0"
+    }
   }
 }
