@@ -72,6 +72,167 @@ const STATE_NAMES: Record<string, string> = {
   PR: "Puerto Rico", VI: "U.S. Virgin Islands",
 };
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+function Bone({ w, h, r = 8, mb = 0 }: { w?: string | number; h: number; r?: number; mb?: number }) {
+  return (
+    <div
+      style={{
+        width: w ?? "100%",
+        height: h,
+        borderRadius: r,
+        background: "var(--surface-alt)",
+        flexShrink: 0,
+        marginBottom: mb || undefined,
+        animation: "pqSkeleton 1.4s ease-in-out infinite",
+      }}
+    />
+  );
+}
+
+function ParkPageSkeleton() {
+  return (
+    <DesktopShell fullbleed>
+      <style>{`
+        @keyframes pqSkeleton {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.45; }
+        }
+      `}</style>
+      <div style={{ display: "flex", height: "100%" }}>
+
+        {/* ── Left column ── */}
+        <div style={{ flex: 1, minWidth: 0, overflowY: "auto", background: "var(--bg)" }}>
+
+          {/* Breadcrumb */}
+          <div style={{ padding: "18px 32px 0", display: "flex", alignItems: "center", gap: 8 }}>
+            <Bone w={60} h={14} r={6} />
+            <Bone w={120} h={14} r={6} />
+          </div>
+
+          {/* Hero */}
+          <div style={{ padding: "14px 32px 0" }}>
+            <div style={{ borderRadius: 14, overflow: "hidden", height: 360 }}>
+              <Bone h={360} r={14} />
+            </div>
+          </div>
+
+          {/* Photo strip */}
+          <div style={{ padding: "14px 32px 0", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
+            {[0,1,2,3].map((i) => <Bone key={i} h={120} r={10} />)}
+          </div>
+
+          {/* About */}
+          <div style={{ padding: "24px 32px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <Bone w={60} h={10} r={4} mb={2} />
+            <Bone h={14} r={4} />
+            <Bone h={14} r={4} />
+            <Bone w="72%" h={14} r={4} />
+          </div>
+
+          {/* Quick stats */}
+          <div style={{ padding: "0 32px 24px" }}>
+            <div style={{ background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 12, padding: "18px 0", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, paddingLeft: 16, paddingRight: 16 }}>
+              {[0,1,2,3].map((i) => (
+                <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <Bone w={40} h={9} r={4} />
+                  <Bone w={56} h={22} r={5} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Activities */}
+          <div style={{ padding: "0 32px 24px" }}>
+            <Bone w={80} h={10} r={4} mb={10} />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[90, 70, 110, 80, 95, 65].map((w, i) => <Bone key={i} w={w} h={28} r={100} />)}
+            </div>
+          </div>
+
+          {/* Map */}
+          <div style={{ padding: "0 32px 24px" }}>
+            <Bone w={50} h={10} r={4} mb={10} />
+            <Bone h={260} r={12} />
+          </div>
+
+          {/* Hours */}
+          <div style={{ padding: "0 32px 24px" }}>
+            <Bone w={70} h={10} r={4} mb={10} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[0,1,2,3,4,5,6].map((i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <Bone w={80} h={13} r={4} />
+                  <Bone w={120} h={13} r={4} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Weather */}
+          <div style={{ padding: "0 32px 40px" }}>
+            <Bone w={90} h={10} r={4} mb={12} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8 }}>
+              {[0,1,2,3,4,5,6].map((i) => <Bone key={i} h={90} r={10} />)}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Journal column ── */}
+        <div style={{ width: 420, flexShrink: 0, borderLeft: "0.5px solid var(--hairline)", background: "#FAF3E0", padding: "18px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 14, borderBottom: "0.5px dashed rgba(58,46,28,0.22)" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <Bone w={60} h={9} r={4} />
+              <Bone w={120} h={22} r={6} />
+            </div>
+            <Bone w={88} h={32} r={8} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", gap: 12 }}>
+              <Bone w={44} h={44} r={8} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                <Bone w="60%" h={13} r={4} />
+                <Bone h={11} r={4} />
+                <Bone w="80%" h={11} r={4} />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[100, 80, 120, 90].map((w, i) => <Bone key={i} w={w} h={80} r={8} />)}
+            </div>
+            <Bone h={13} r={4} />
+            <Bone w="70%" h={13} r={4} />
+          </div>
+        </div>
+
+      </div>
+    </DesktopShell>
+  );
+}
+
+// ── Weather emoji ─────────────────────────────────────────────────────────────
+
+function weatherEmoji(shortForecast: string): string {
+  const f = shortForecast.toLowerCase();
+  if (f.includes("thunder") || f.includes("storm"))       return "⛈️";
+  if (f.includes("tornado"))                              return "🌪️";
+  if (f.includes("blizzard"))                             return "🌨️";
+  if (f.includes("snow") && f.includes("rain"))           return "🌨️";
+  if (f.includes("freezing"))                             return "🧊";
+  if (f.includes("sleet") || f.includes("wintry"))        return "🌨️";
+  if (f.includes("heavy snow") || f.includes("blowing snow")) return "❄️";
+  if (f.includes("snow"))                                 return "❄️";
+  if (f.includes("heavy rain") || f.includes("showers"))  return "🌧️";
+  if (f.includes("rain") || f.includes("drizzle"))        return "🌦️";
+  if (f.includes("fog") || f.includes("haze") || f.includes("smoke")) return "🌫️";
+  if (f.includes("windy") || f.includes("breezy"))        return "🌬️";
+  if (f.includes("partly cloudy") || f.includes("partly sunny") || f.includes("mix")) return "⛅";
+  if (f.includes("mostly cloudy") || f.includes("increasing clouds")) return "🌥️";
+  if (f.includes("cloud") || f.includes("overcast"))      return "☁️";
+  if (f.includes("sunny") || f.includes("clear"))         return "☀️";
+  if (f.includes("hot"))                                  return "🌡️";
+  return "🌤️";
+}
+
 // ── SectionLabel ──────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -94,24 +255,25 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 // ── InfoChip ──────────────────────────────────────────────────────────────────
 
-function InfoChip({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "4px 10px",
-        borderRadius: 100,
-        background: muted ? "var(--surface-alt)" : "var(--surface)",
-        border: "0.5px solid var(--hairline)",
-        fontSize: 11.5,
-        fontWeight: 500,
-        color: muted ? "var(--ink-soft)" : "var(--ink)",
-      }}
-    >
-      {children}
-    </span>
-  );
+function InfoChip({ children, muted, href }: { children: React.ReactNode; muted?: boolean; href?: string }) {
+  const style: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 10px",
+    borderRadius: 100,
+    background: muted ? "var(--surface-alt)" : "var(--surface)",
+    border: "0.5px solid var(--hairline)",
+    fontSize: 11.5,
+    fontWeight: 500,
+    color: muted ? "var(--ink-soft)" : "var(--ink)",
+    textDecoration: "none",
+    cursor: href ? "pointer" : "default",
+    transition: href ? "background 0.12s ease, border-color 0.12s ease" : undefined,
+  };
+  if (href) {
+    return <Link href={href} style={style}>{children}</Link>;
+  }
+  return <span style={style}>{children}</span>;
 }
 
 // ── StatTile ──────────────────────────────────────────────────────────────────
@@ -740,11 +902,13 @@ export default function ParkDetailPage({
     ? "bucketList"
     : "notVisited";
 
-  if (loading || !park) {
+  if (loading) return <ParkPageSkeleton />;
+
+  if (!park) {
     return (
       <DesktopShell fullbleed>
         <div className="flex items-center justify-center h-full" style={{ color: "var(--ink-mute)" }}>
-          {loading ? "Loading…" : "Park not found."}
+          Park not found.
         </div>
       </DesktopShell>
     );
@@ -811,7 +975,7 @@ export default function ParkDetailPage({
                   src={nps?.images[0].url}
                   alt={nps?.images[0].altText || park.name}
                   onClick={() => setLightbox({ images: nps.images.map((img) => ({ url: img.url, caption: img.title || undefined, credit: img.credit || undefined })), index: 0 })}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "zoom-in" }}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer" }}
                 />
               ) : (
                 <div style={{ width: "100%", height: "100%", background: gradient }} />
@@ -879,7 +1043,7 @@ export default function ParkDetailPage({
                   src={img.url}
                   alt={img.altText || ""}
                   onClick={() => setLightbox({ images: nps.images.map((im) => ({ url: im.url, caption: im.title || undefined, credit: im.credit || undefined })), index: i + 1 })}
-                  style={{ height: 120, width: "100%", objectFit: "cover", borderRadius: 10, cursor: "zoom-in" }}
+                  style={{ height: 120, width: "100%", objectFit: "cover", borderRadius: 10, cursor: "pointer" }}
                 />
               ) : (
                 <div
@@ -1020,7 +1184,7 @@ export default function ParkDetailPage({
                   ACTIVITIES
                 </SectionLabel>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                  {shown.map((a, i) => <InfoChip key={i}>{a}</InfoChip>)}
+                  {shown.map((a, i) => <InfoChip key={i} href={`/parks?activity=${encodeURIComponent(a)}`}>{a}</InfoChip>)}
                   {!activitiesExpanded && hidden > 0 && (
                     <button
                       onClick={() => setActivitiesExpanded(true)}
@@ -1054,7 +1218,7 @@ export default function ParkDetailPage({
                   TOPICS
                 </SectionLabel>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                  {shown.map((t, i) => <InfoChip key={i} muted>{t}</InfoChip>)}
+                  {shown.map((t, i) => <InfoChip key={i} muted href={`/parks?topic=${encodeURIComponent(t)}`}>{t}</InfoChip>)}
                   {!topicsExpanded && hidden > 0 && (
                     <button
                       onClick={() => setTopicsExpanded(true)}
@@ -1282,8 +1446,7 @@ export default function ParkDetailPage({
                           <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, fontWeight: 700, color: "var(--ink-mute)", letterSpacing: "0.8px", textTransform: "uppercase" }}>
                             {shortDay}
                           </div>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={period.icon} alt={period.shortForecast} style={{ width: 36, height: 36 }} />
+                          <div style={{ fontSize: 30, lineHeight: 1 }}>{weatherEmoji(period.shortForecast)}</div>
                           <div style={{ fontWeight: 800, fontSize: 15, color: "var(--ink)", lineHeight: 1 }}>
                             {period.temperature}°{period.temperatureUnit}
                           </div>

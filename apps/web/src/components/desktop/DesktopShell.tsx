@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Home, Sparkles, Map, User, Award, Compass,
-  Check, Bookmark, PenLine, Users, Globe,
+  Check, Bookmark, PenLine, Users, Globe, TreePine,
   Plus, ChevronDown, Mountain, LogOut, UserCircle, Pencil, Sun, UserPlus,
 } from "lucide-react";
 import { useTheme, type Palette } from "@/components/ThemeProvider";
@@ -33,7 +33,7 @@ const NAV = [
       { id: "dashboard", href: "/dashboard", icon: Home,    label: "Home" },
       { id: "feed",      href: "/feed",      icon: Sparkles, label: "Feed" },
       { id: "map",       href: "/map",       icon: Map,     label: "Map" },
-      { id: "parks",     href: "/parks",     icon: Globe,   label: "Parks" },
+      { id: "parks",     href: "/parks",     icon: TreePine, label: "Parks" },
       { id: "passport",  href: "/passport",  icon: User,    label: "Passport" },
       { id: "badges",    href: "/badges",    icon: Award,   label: "Badges" },
       { id: "planner",   href: "/planner",   icon: Compass, label: "Trip Planner" },
