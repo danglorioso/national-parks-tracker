@@ -598,6 +598,7 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
           strokeWidth="2.2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          style={{ marginTop: -3 }}
         >
           <path d="M3 20L9 9l3 5 3-7 6 13H3z" />
           <circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none" />
