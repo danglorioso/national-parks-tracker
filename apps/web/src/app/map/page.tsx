@@ -4,8 +4,9 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DesktopShell } from "@/components/desktop/DesktopShell";
-import { MapLeftPanel, type FilterStatus } from "@/components/desktop/MapLeftPanel";
+import { type FilterStatus } from "@/components/desktop/MapLeftPanel";
 import { MapRightPanel } from "@/components/desktop/MapRightPanel";
+import { MapSpotlight } from "@/components/desktop/MapSpotlight";
 import Map from "@/components/Map";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
 import EditVisitDialog from "@/components/EditVisitDialog";
@@ -39,9 +40,7 @@ export default function Home() {
   const router = useRouter();
 
   const [parks, setParks] = useState<ParkForMap[]>([]);
-  const [totalParksCount, setTotalParksCount] = useState(0);
   const [visitedParksCount, setVisitedParksCount] = useState(0);
-  const [isLoadingParks, setIsLoadingParks] = useState(true);
   const [showVisitDateDialog, setShowVisitDateDialog] = useState(false);
   const [pendingParkCode, setPendingParkCode] = useState<string | null>(null);
   const [pendingParkName, setPendingParkName] = useState<string>("");
@@ -60,13 +59,10 @@ export default function Home() {
     }
   }, [isSignedIn, isLoaded, router]);
 
-  useEffect(() => {
-    fetchParksAndVisits();
-  }, []);
+  const [spotOpen, setSpotOpen] = useState(false);
 
   const fetchParksAndVisits = async () => {
     try {
-      setIsLoadingParks(true);
       const [parksResponse, visitsResponse] = await Promise.all([
         fetch('/api/parks'),
         fetch('/api/visits')
@@ -75,7 +71,6 @@ export default function Home() {
       if (!parksResponse.ok) throw new Error('Failed to fetch parks');
 
       const parksData: ParkFromDB[] = await parksResponse.json();
-      setTotalParksCount(parksData.length);
 
       const visitedParkCodes: Set<string> = new Set();
       const bucketListParkCodes: Set<string> = new Set();
@@ -119,10 +114,25 @@ export default function Home() {
       setParks(transformedParks);
     } catch (error) {
       console.error('Error fetching parks:', error);
-    } finally {
-      setIsLoadingParks(false);
     }
   };
+
+  useEffect(() => {
+    void (async () => { await fetchParksAndVisits(); })();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSpotOpen((s) => !s);
+      } else if (e.key === 'Escape') {
+        setSpotOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const handleMarkVisited = (parkCode: string) => {
     const park = parks.find(p => p.park_code === parkCode);
@@ -228,27 +238,7 @@ export default function Home() {
     }
   };
 
-  // ── Derived stats ──────────────────────────────────────────────────────────
-
-  const visitedParks = parks.filter(p => p.status === 'visited');
-
-  const statesVisited = new Set(
-    visitedParks.flatMap(p => p.states?.split(',').map(s => s.trim()).filter(Boolean) ?? [])
-  ).size;
-
-  const thisYear = new Date().getFullYear();
-  const parksThisYear = visitedParks.filter(
-    p => p.visitedDate && new Date(p.visitedDate).getFullYear() === thisYear
-  ).length;
-
   const bucketListCount = parks.filter(p => p.status === 'bucketList').length;
-  const unvisitedCount = parks.filter(p => p.status === 'notVisited' || p.status === 'bucketList').length;
-
-  const recentVisits = [...visitedParks]
-    .filter(p => p.visitedDate)
-    .sort((a, b) => new Date(b.visitedDate!).getTime() - new Date(a.visitedDate!).getTime())
-    .slice(0, 4)
-    .map(p => ({ park_code: p.park_code, name: p.name, visitedDate: p.visitedDate! }));
 
   const filteredParks = filterStatus === 'all'
     ? parks
@@ -274,18 +264,114 @@ export default function Home() {
             onSelectPark={setSelectedParkCode}
           />
 
-          {/* Left floating panel — park list + filter */}
-          <MapLeftPanel
+          {/* Top-left — Filter chip cluster */}
+          <div style={{ position: "absolute", top: 16, left: 16, zIndex: 20 }}>
+            <div
+              style={{
+                background: "rgba(255,251,241,0.92)",
+                backdropFilter: "blur(24px) saturate(160%)",
+                WebkitBackdropFilter: "blur(24px) saturate(160%)",
+                border: "0.5px solid var(--hairline)",
+                borderRadius: 100,
+                padding: 4,
+                display: "flex",
+                gap: 2,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+              }}
+            >
+              {[
+                { key: "all" as FilterStatus,        label: "All",     color: "var(--ink)",       count: parks.length },
+                { key: "visited" as FilterStatus,    label: "Visited", color: "var(--visited)",   count: parks.filter(p => p.status === "visited").length },
+                { key: "bucketList" as FilterStatus, label: "Bucket",  color: "var(--bucket)",    count: parks.filter(p => p.status === "bucketList").length },
+                { key: "notVisited" as FilterStatus, label: "Not yet", color: "var(--unvisited)", count: parks.filter(p => p.status === "notVisited").length },
+              ].map((f) => {
+                const active = filterStatus === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => { setFilterStatus(f.key); setSelectedParkCode(null); }}
+                    style={{
+                      background: active ? "rgba(31,61,46,0.08)" : "transparent",
+                      border: 0,
+                      cursor: "pointer",
+                      borderRadius: 100,
+                      padding: "5px 11px 5px 9px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontWeight: active ? 700 : 600,
+                      fontSize: 11.5,
+                      color: active ? "var(--ink)" : "var(--ink-soft)",
+                      transition: "background 120ms",
+                    }}
+                  >
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: f.color }} />
+                    {f.label}
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 9.5,
+                        color: "var(--ink-mute)",
+                        fontVariantNumeric: "tabular-nums",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {f.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Top-center — Spotlight search */}
+          <MapSpotlight
             parks={parks}
-            filterStatus={filterStatus}
-            onFilterChange={(f) => {
-              setFilterStatus(f);
-              setSelectedParkCode(null);
-            }}
-            selectedParkCode={selectedParkCode}
-            onSelectPark={setSelectedParkCode}
-            loading={isLoadingParks}
+            open={spotOpen}
+            onToggle={() => setSpotOpen((s) => !s)}
+            onClose={() => setSpotOpen(false)}
+            onPick={(code) => { setSelectedParkCode(code); setSpotOpen(false); }}
           />
+
+          {/* Top-right — Quest counts pill */}
+          <div
+            style={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              zIndex: 20,
+              background: "rgba(255,251,241,0.92)",
+              backdropFilter: "blur(24px) saturate(160%)",
+              WebkitBackdropFilter: "blur(24px) saturate(160%)",
+              border: "0.5px solid var(--hairline)",
+              borderRadius: 100,
+              padding: "8px 16px",
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              fontFamily: "var(--font-mono)",
+              fontSize: 10.5,
+              color: "var(--ink-soft)",
+              letterSpacing: "0.6px",
+              fontWeight: 600,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--visited)", display: "inline-block" }} />
+              <b style={{ color: "var(--ink)", fontWeight: 700 }}>{visitedParksCount}</b> VISITED
+            </span>
+            <span style={{ width: 1, height: 12, background: "var(--hairline)", display: "inline-block" }} />
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--bucket)", display: "inline-block" }} />
+              <b style={{ color: "var(--ink)", fontWeight: 700 }}>{bucketListCount}</b> BUCKET
+            </span>
+            <span style={{ width: 1, height: 12, background: "var(--hairline)", display: "inline-block" }} />
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--unvisited)", display: "inline-block" }} />
+              <b style={{ color: "var(--ink)", fontWeight: 700 }}>{parks.filter(p => p.status === "notVisited").length}</b> TO GO
+            </span>
+          </div>
 
           {/* Right floating panel — park detail peek */}
           {selectedPark && (
@@ -299,32 +385,21 @@ export default function Home() {
             />
           )}
 
-          {/* Top-center pill */}
+          {/* Bottom-left attribution */}
           <div
             style={{
               position: "absolute",
-              top: 14,
-              left: "50%",
-              transform: "translateX(-50%)",
+              left: 16,
+              bottom: 16,
               zIndex: 15,
-              background: "rgba(255,251,241,0.85)",
-              backdropFilter: "blur(20px)",
-              border: "0.5px solid var(--hairline)",
-              borderRadius: 100,
-              padding: "6px 14px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              whiteSpace: "nowrap",
               fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              color: "var(--ink-soft)",
-              letterSpacing: "1.4px",
+              fontSize: 9,
+              letterSpacing: "1px",
+              color: "var(--ink-mute)",
               fontWeight: 600,
             }}
           >
-            <span style={{ color: "var(--primary)" }}>●</span>
-            {visitedParksCount} VISITED · {bucketListCount} BOOKMARKED · {parks.filter(p => p.status === 'notVisited').length} UNVISITED
+            {filteredParks.length} OF {parks.length} VISIBLE
           </div>
         </div>
 

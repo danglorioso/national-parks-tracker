@@ -1,6 +1,7 @@
 "use client";
 
 import { X, Check, Bookmark, BookmarkX, ArrowRight, Pencil } from "lucide-react";
+import { fullStateName } from "@/lib/stateNames";
 
 interface Park {
   park_code: string;
@@ -126,7 +127,7 @@ export function MapRightPanel({
   onEditVisit,
 }: Props) {
   const heroPhoto = park.photos?.[0];
-  const firstState = park.states.split(",")[0].trim();
+  const firstState = fullStateName(park.states.split(",")[0].trim());
   const lastVisitDate = park.visitedDate
     ? new Date(park.visitedDate).toLocaleDateString("en-US", {
         year: "numeric",
@@ -139,9 +140,9 @@ export function MapRightPanel({
     <div
       style={{
         position: "absolute",
-        top: 16,
+        top: 64,
         right: 16,
-        bottom: 16,
+        bottom: 80,
         width: 360,
         zIndex: 20,
         background: "rgba(255,251,241,0.94)",
@@ -153,8 +154,10 @@ export function MapRightPanel({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        animation: "pqPeekInD 220ms cubic-bezier(.2,.7,.3,1)",
       }}
     >
+      <style>{`@keyframes pqPeekInD { from { opacity:0; transform:translateX(8px) } to { opacity:1; transform:translateX(0) } }`}</style>
       {/* Hero */}
       <div style={{ position: "relative", height: 200, flexShrink: 0 }}>
         {heroPhoto ? (

@@ -1,13 +1,13 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { usePathname, useRouter } from "next/navigation";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Home, Sparkles, Map, User, Award, Compass,
   Check, Bookmark, PenLine, Users, Globe,
-  Plus, ChevronDown, Mountain, Settings,
+  Plus, ChevronDown, Mountain, LogOut, UserCircle, Pencil, Sun, UserPlus,
 } from "lucide-react";
 import { useTheme, type Palette } from "@/components/ThemeProvider";
 
@@ -55,6 +55,202 @@ const NAV = [
   },
 ] as const;
 
+// ── AccountMenu ───────────────────────────────────────────────────────────────
+
+function AccountMenu() {
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const router = useRouter();
+  const { dark, setDark, palette, setPalette } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [showAppearance, setShowAppearance] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setShowAppearance(false);
+      }
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setOpen(false); setShowAppearance(false); }
+    };
+    const t = setTimeout(() => document.addEventListener("mousedown", onDocClick), 0);
+    document.addEventListener("keydown", onEsc);
+    return () => { clearTimeout(t); document.removeEventListener("mousedown", onDocClick); document.removeEventListener("keydown", onEsc); };
+  }, [open]);
+
+  const name = user?.fullName ?? user?.username ?? "Explorer";
+  const handle = user?.username ? `@${user.username}` : "";
+  const avatarUrl = user?.imageUrl ?? "";
+
+  const PALETTES: { id: Palette; label: string; color: string }[] = [
+    { id: "forest",  label: "Forest",  color: "#1F3D2E" },
+    { id: "canyon",  label: "Canyon",  color: "#7B3A1F" },
+    { id: "glacier", label: "Glacier", color: "#2D4F66" },
+    { id: "dusk",    label: "Dusk",    color: "#3A2E5C" },
+  ];
+
+  const menuItems = [
+    { icon: UserCircle, label: "View profile", sub: "Your passport", onClick: () => { setOpen(false); router.push("/passport"); } },
+    { icon: Pencil,     label: "Edit account",  onClick: () => setOpen(false) },
+    { icon: Sun,        label: "Appearance",    sub: dark ? "Dark" : "Light", onClick: () => setShowAppearance(s => !s) },
+    { divider: true },
+    { icon: UserPlus,   label: "Switch account", onClick: () => setOpen(false) },
+    { icon: LogOut,     label: "Sign out", danger: true, onClick: () => { setOpen(false); signOut(() => router.push("/")); } },
+  ];
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      {/* Resting pill */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: "100%",
+          background: open ? "rgba(31,61,46,0.06)" : "transparent",
+          border: `0.5px solid ${open ? "var(--hairline)" : "transparent"}`,
+          borderRadius: 12,
+          padding: "8px 10px 8px 8px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 9,
+          textAlign: "left",
+          transition: "background 120ms",
+        }}
+      >
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+        ) : (
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--surface-alt)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, color: "var(--ink-mute)" }}>
+            {name[0]?.toUpperCase()}
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 12.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+          {handle && <div style={{ fontSize: 11, color: "var(--ink-mute)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{handle}</div>}
+        </div>
+        <ChevronDown
+          style={{ width: 13, height: 13, color: "var(--ink-mute)", flexShrink: 0, transform: open ? "rotate(180deg)" : "rotate(0)", transition: "transform 160ms" }}
+          strokeWidth={2.2}
+        />
+      </button>
+
+      {/* Dropdown panel — opens upward */}
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 8px)",
+            left: 0,
+            right: 0,
+            background: "rgba(255,251,241,0.98)",
+            backdropFilter: "blur(24px) saturate(160%)",
+            WebkitBackdropFilter: "blur(24px) saturate(160%)",
+            border: "0.5px solid var(--hairline)",
+            borderRadius: 12,
+            padding: 5,
+            boxShadow: "0 12px 40px rgba(0,0,0,0.28)",
+            zIndex: 50,
+            animation: "pqAccMenu 160ms cubic-bezier(.2,.7,.3,1)",
+          }}
+        >
+          <style>{`
+            @keyframes pqAccMenu { from { opacity: 0; transform: translateY(4px) scale(0.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
+            .pq-menu-item:hover { background: rgba(31,61,46,0.06) !important; }
+          `}</style>
+
+          {/* Profile snippet */}
+          <div style={{ padding: "8px 10px 10px", borderBottom: "0.5px solid var(--hairline-soft)", marginBottom: 4 }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "1.4px", color: "var(--ink-mute)", textTransform: "uppercase", fontWeight: 600 }}>SIGNED IN AS</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)", marginTop: 2 }}>{name}</div>
+          </div>
+
+          {/* Items */}
+          {menuItems.map((item, i) => {
+            if ("divider" in item) {
+              return <div key={i} style={{ height: 1, background: "var(--hairline-soft)", margin: "4px 6px" }} />;
+            }
+            const Icon = item.icon;
+            return (
+              <button
+                key={i}
+                onClick={item.onClick}
+                className="pq-menu-item"
+                style={{
+                  width: "100%",
+                  background: "transparent",
+                  border: 0,
+                  padding: "7px 10px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 9,
+                  textAlign: "left",
+                  borderRadius: 8,
+                  color: item.danger ? "#C04040" : "var(--ink)",
+                  transition: "background 100ms",
+                }}
+              >
+                <Icon style={{ width: 14, height: 14, color: item.danger ? "#C04040" : "var(--ink-soft)", flexShrink: 0 }} strokeWidth={2.0} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500, fontSize: 12.5 }}>{item.label}</div>
+                  {item.sub && <div style={{ fontSize: 10.5, color: "var(--ink-mute)", marginTop: 1 }}>{item.sub}</div>}
+                </div>
+              </button>
+            );
+          })}
+
+          {/* Inline Appearance panel */}
+          {showAppearance && (
+            <div style={{ margin: "4px 5px 2px", padding: "10px 8px", background: "var(--surface-alt)", borderRadius: 8 }}>
+              {/* Dark mode toggle */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <span style={{ fontWeight: 600, fontSize: 12, color: "var(--ink)" }}>Dark mode</span>
+                <button
+                  onClick={() => setDark(!dark)}
+                  style={{
+                    width: 36, height: 20, borderRadius: 100,
+                    background: dark ? "var(--primary)" : "var(--hairline)",
+                    border: "none", cursor: "pointer", position: "relative", transition: "background 200ms",
+                  }}
+                >
+                  <div style={{
+                    position: "absolute", top: 2, left: dark ? 18 : 2,
+                    width: 16, height: 16, borderRadius: "50%",
+                    background: "#FFFBF1", boxShadow: "0 1px 4px rgba(0,0,0,0.25)", transition: "left 200ms",
+                  }} />
+                </button>
+              </div>
+              {/* Palette */}
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "1.4px", color: "var(--ink-mute)", fontWeight: 600, marginBottom: 6 }}>PALETTE</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                {PALETTES.map(({ id, label, color }) => (
+                  <button
+                    key={id}
+                    onClick={() => setPalette(id)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      background: palette === id ? "var(--surface)" : "transparent",
+                      border: palette === id ? "1px solid var(--hairline)" : "1px solid transparent",
+                      borderRadius: 6, padding: "4px 6px", cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                    <span style={{ fontWeight: 600, fontSize: 11, color: "var(--ink)" }}>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Sidebar ──────────────────────────────────────────────────────────────────
 
 interface SidebarProps {
@@ -73,7 +269,7 @@ function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit }: S
       className="flex flex-col shrink-0 overflow-y-auto"
       style={{
         width: 232,
-        background: "#f5efe0",
+        background: "rgba(245,239,224,0.5)",
         borderRight: "0.5px solid var(--hairline)",
         backdropFilter: "blur(30px) saturate(160%)",
         WebkitBackdropFilter: "blur(30px) saturate(160%)",
@@ -183,45 +379,54 @@ function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit }: S
         ))}
       </nav>
 
-      {/* Quest progress widget */}
+      {/* Quest progress + Account menu pinned to bottom */}
       <div
         style={{
-          margin: "auto 14px 0",
-          padding: "10px 4px 2px",
+          marginTop: "auto",
+          padding: "10px 10px 0",
           borderTop: "0.5px solid var(--hairline-soft)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
         }}
       >
-        <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-          <span
-            className="uppercase font-semibold"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 9,
-              letterSpacing: "1.4px",
-              color: "var(--ink-mute)",
-            }}
-          >
-            QUEST
-          </span>
-          <span className="font-bold" style={{ fontSize: 11, color: "var(--ink)" }}>
-            {visitedCount} / {totalCount || 63}
-          </span>
-        </div>
-        <div
-          className="rounded-full overflow-hidden"
-          style={{ height: 6, background: "var(--surface-alt)" }}
-        >
+        {/* Quest progress */}
+        <div style={{ padding: "8px 4px 4px" }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
+            <span
+              className="uppercase font-semibold"
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 9,
+                letterSpacing: "1.4px",
+                color: "var(--ink-mute)",
+              }}
+            >
+              QUEST
+            </span>
+            <span className="font-bold" style={{ fontSize: 11, color: "var(--ink)" }}>
+              {visitedCount} / {totalCount || 63}
+            </span>
+          </div>
           <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${pct}%`,
-              background: "linear-gradient(to right, var(--primary), var(--accent))",
-            }}
-          />
+            className="rounded-full overflow-hidden"
+            style={{ height: 6, background: "var(--surface-alt)" }}
+          >
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${pct}%`,
+                background: "linear-gradient(to right, var(--primary), var(--accent))",
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 10.5, color: "var(--ink-mute)", marginTop: 4 }}>
+            {Math.round(pct)}% complete · {(totalCount || 63) - visitedCount} to go
+          </div>
         </div>
-        <div style={{ fontSize: 10.5, color: "var(--ink-mute)", marginTop: 4 }}>
-          {Math.round(pct)}% complete · {(totalCount || 63) - visitedCount} to go
-        </div>
+
+        {/* Account menu */}
+        <AccountMenu />
       </div>
     </aside>
   );
@@ -242,7 +447,6 @@ export function DesktopShell({
   rightRail,
   onLogVisit,
 }: DesktopShellProps) {
-  const { user, isLoaded } = useUser();
   const [visitedCount, setVisitedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(63);
   const [bucketCount, setBucketCount] = useState(0);
@@ -273,221 +477,38 @@ export function DesktopShell({
       .catch(() => {});
   }, []);
 
-  const firstName = user?.firstName ?? "Explorer";
-  const avatarUrl = user?.imageUrl ?? "";
-
-  const { dark, setDark, palette, setPalette } = useTheme();
-  const [showSettings, setShowSettings] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showSettings) return;
-    const handler = (e: MouseEvent) => {
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
-        setShowSettings(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showSettings]);
-
-  const PALETTES: { id: Palette; label: string; color: string }[] = [
-    { id: "forest",  label: "Forest",  color: "#1F3D2E" },
-    { id: "canyon",  label: "Canyon",  color: "#7B3A1F" },
-    { id: "glacier", label: "Glacier", color: "#2D4F66" },
-    { id: "dusk",    label: "Dusk",    color: "#3A2E5C" },
-  ];
-
   return (
     <div
-      className="flex flex-col h-screen overflow-hidden"
+      className="flex h-screen overflow-hidden"
       style={{ background: "var(--bg)" }}
     >
-      {/* Title bar */}
-      <div
-        className="flex items-center shrink-0 justify-end px-3 gap-2"
-        style={{
-          height: 36,
-          background: "var(--surface)",
-          borderBottom: "0.5px solid var(--hairline)",
-          position: "relative",
-        }}
-      >
-        {/* Settings button + popover */}
-        <div ref={settingsRef} style={{ position: "relative" }}>
-          <button
-            onClick={() => setShowSettings((s) => !s)}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--ink-mute)",
-              display: "flex",
-              alignItems: "center",
-              padding: "4px 6px",
-              borderRadius: 6,
-            }}
-            title="Settings"
-          >
-            <Settings className="w-[14px] h-[14px]" strokeWidth={1.8} />
-          </button>
+      <DesktopSidebar
+        visitedCount={visitedCount}
+        totalCount={totalCount}
+        bucketCount={bucketCount}
+        onLogVisit={onLogVisit}
+      />
 
-          {showSettings && (
-            <div
-              style={{
-                position: "absolute",
-                top: "calc(100% + 6px)",
-                right: 0,
-                width: 220,
-                background: "var(--surface)",
-                border: "0.5px solid var(--hairline)",
-                borderRadius: 12,
-                boxShadow: "0 12px 36px rgba(0,0,0,0.18)",
-                padding: "12px 14px",
-                zIndex: 50,
-              }}
-            >
-              {/* Dark mode row */}
+      <div className="flex flex-1 min-w-0 min-h-0" style={{ background: "var(--bg)" }}>
+        {fullbleed ? (
+          <div className="flex-1 min-w-0 overflow-hidden">{children}</div>
+        ) : (
+          <>
+            <div className="flex-1 min-w-0 overflow-y-auto">{children}</div>
+            {rightRail && (
               <div
+                className="shrink-0 overflow-y-auto"
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 14,
+                  width: 340,
+                  borderLeft: "0.5px solid var(--hairline-soft)",
+                  background: "var(--bg)",
                 }}
               >
-                <div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "1.4px", color: "var(--ink-mute)", fontWeight: 600 }}>APPEARANCE</div>
-                  <div style={{ fontWeight: 600, fontSize: 12.5, color: "var(--ink)", marginTop: 2 }}>Dark mode</div>
-                </div>
-                <button
-                  onClick={() => setDark(!dark)}
-                  style={{
-                    width: 36,
-                    height: 20,
-                    borderRadius: 100,
-                    background: dark ? "var(--primary)" : "var(--hairline)",
-                    border: "none",
-                    cursor: "pointer",
-                    position: "relative",
-                    transition: "background 200ms",
-                    flexShrink: 0,
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 2,
-                      left: dark ? 18 : 2,
-                      width: 16,
-                      height: 16,
-                      borderRadius: "50%",
-                      background: "#FFFBF1",
-                      boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
-                      transition: "left 200ms",
-                    }}
-                  />
-                </button>
+                {rightRail}
               </div>
-
-              {/* Palette */}
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "1.4px", color: "var(--ink-mute)", fontWeight: 600, marginBottom: 8 }}>PALETTE</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                {PALETTES.map(({ id, label, color }) => (
-                  <button
-                    key={id}
-                    onClick={() => setPalette(id)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 7,
-                      background: palette === id ? "var(--surface-alt)" : "transparent",
-                      border: palette === id ? "1px solid var(--hairline)" : "1px solid transparent",
-                      borderRadius: 8,
-                      padding: "5px 8px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                    <span style={{ fontWeight: 600, fontSize: 11.5, color: "var(--ink)" }}>{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Avatar pill */}
-        {isLoaded && (
-          <div>
-            <div
-              className="flex items-center gap-[7px] cursor-pointer"
-              style={{
-                padding: "3px 9px 3px 3px",
-                borderRadius: 100,
-                background: "var(--surface-alt)",
-                border: "0.5px solid var(--hairline)",
-              }}
-            >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={firstName}
-                  className="rounded-full object-cover shrink-0"
-                  style={{ width: 22, height: 22 }}
-                />
-              ) : (
-                <div
-                  className="rounded-full shrink-0"
-                  style={{ width: 22, height: 22, background: "var(--surface-alt)" }}
-                />
-              )}
-              <span
-                className="font-semibold"
-                style={{ fontSize: 11.5, color: "var(--ink)" }}
-              >
-                {firstName}
-              </span>
-              <ChevronDown
-                className="w-[11px] h-[11px]"
-                strokeWidth={2.2}
-                style={{ color: "var(--ink-mute)" }}
-              />
-            </div>
-          </div>
+            )}
+          </>
         )}
-      </div>
-
-      {/* Body: sidebar + content */}
-      <div className="flex flex-1 min-h-0">
-        <DesktopSidebar
-          visitedCount={visitedCount}
-          totalCount={totalCount}
-          bucketCount={bucketCount}
-          onLogVisit={onLogVisit}
-        />
-
-        <div className="flex flex-1 min-w-0 min-h-0" style={{ background: "var(--bg)" }}>
-          {fullbleed ? (
-            <div className="flex-1 min-w-0 overflow-hidden">{children}</div>
-          ) : (
-            <>
-              <div className="flex-1 min-w-0 overflow-y-auto">{children}</div>
-              {rightRail && (
-                <div
-                  className="shrink-0 overflow-y-auto"
-                  style={{
-                    width: 340,
-                    borderLeft: "0.5px solid var(--hairline-soft)",
-                    background: "var(--bg)",
-                  }}
-                >
-                  {rightRail}
-                </div>
-              )}
-            </>
-          )}
-        </div>
       </div>
     </div>
   );
