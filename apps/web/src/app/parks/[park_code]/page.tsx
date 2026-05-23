@@ -4,13 +4,17 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
-  ChevronLeft, PenLine, MapPin, Plus,
+  ChevronLeft, PenLine, MapPin, Plus, ExternalLink, Phone, Mail, Clock, DollarSign, Navigation, Cloud, Tag, Footprints,
 } from "lucide-react";
 import { DesktopShell } from "@/components/desktop/DesktopShell";
 import { DesktopButton } from "@/components/desktop/DesktopButton";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
 import EditVisitDialog from "@/components/EditVisitDialog";
+import type { NpsData } from "@/app/api/parks/[park_code]/nps/route";
+
+const Map = dynamic(() => import("@/components/Map"), { ssr: false, loading: () => <div style={{ height: "100%", background: "var(--surface-alt)" }} /> });
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -74,6 +78,48 @@ function StatusChip({ status }: { status: "visited" | "bucketList" | "notVisited
         {cfg.label}
       </span>
     </div>
+  );
+}
+
+// ── SectionLabel ──────────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontFamily: "var(--font-mono)",
+        fontSize: 10,
+        letterSpacing: "1.6px",
+        color: "var(--ink-mute)",
+        textTransform: "uppercase",
+        marginBottom: 10,
+        fontWeight: 600,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ── InfoChip ──────────────────────────────────────────────────────────────────
+
+function InfoChip({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "4px 10px",
+        borderRadius: 100,
+        background: muted ? "var(--surface-alt)" : "var(--surface)",
+        border: "0.5px solid var(--hairline)",
+        fontSize: 11.5,
+        fontWeight: 500,
+        color: muted ? "var(--ink-soft)" : "var(--ink)",
+      }}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -404,10 +450,18 @@ export default function ParkDetailPage({
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog]   = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [nps, setNps] = useState<NpsData | null>(null);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/");
   }, [isLoaded, isSignedIn, router]);
+
+  useEffect(() => {
+    fetch(`/api/parks/${park_code}/nps`)
+      .then((r) => r.json())
+      .then((data) => setNps(data))
+      .catch(() => {});
+  }, [park_code]);
 
   useEffect(() => {
     if (!isSignedIn) return;
@@ -532,7 +586,15 @@ export default function ParkDetailPage({
                 height: 360,
               }}
             >
-              <div style={{ width: "100%", height: "100%", background: gradient }} />
+              {nps?.images[0] ? (
+                <img
+                  src={nps?.images[0].url}
+                  alt={nps?.images[0].altText || park.name}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                <div style={{ width: "100%", height: "100%", background: gradient }} />
+              )}
               <div
                 style={{
                   position: "absolute",
@@ -577,7 +639,7 @@ export default function ParkDetailPage({
             </div>
           </div>
 
-          {/* Photo strip — 4 gradient placeholders */}
+          {/* Photo strip */}
           <div
             style={{
               padding: "14px 32px 0",
@@ -586,17 +648,27 @@ export default function ParkDetailPage({
               gap: 8,
             }}
           >
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  height: 120,
-                  borderRadius: 10,
-                  background: gradient,
-                  opacity: 0.4 + i * 0.15,
-                }}
-              />
-            ))}
+            {Array.from({ length: 4 }).map((_, i) => {
+              const img = nps?.images[i + 1];
+              return img ? (
+                <img
+                  key={i}
+                  src={img.url}
+                  alt={img.altText || ""}
+                  style={{ height: 120, width: "100%", objectFit: "cover", borderRadius: 10 }}
+                />
+              ) : (
+                <div
+                  key={i}
+                  style={{
+                    height: 120,
+                    borderRadius: 10,
+                    background: gradient,
+                    opacity: 0.4 + i * 0.15,
+                  }}
+                />
+              );
+            })}
           </div>
 
           {/* About */}
@@ -676,6 +748,305 @@ export default function ParkDetailPage({
               </DesktopButton>
             </Link>
           </div>
+
+          {/* Mini map */}
+          {park.latitude && park.longitude && (
+            <div style={{ padding: "0 32px 28px" }}>
+              <SectionLabel>
+                <MapPin size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
+                LOCATION
+              </SectionLabel>
+              <div
+                style={{
+                  height: 240,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  border: "0.5px solid var(--hairline)",
+                }}
+              >
+                <Map
+                  center={[parseFloat(park.latitude), parseFloat(park.longitude)]}
+                  zoom={10}
+                  parks={[{
+                    park_code: park.park_code,
+                    name: park.name,
+                    position: [parseFloat(park.latitude), parseFloat(park.longitude)],
+                    status,
+                  }]}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Activities */}
+          {nps?.activities && nps.activities.length > 0 && (
+            <div style={{ padding: "0 32px 28px" }}>
+              <SectionLabel>
+                <Footprints size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
+                ACTIVITIES
+              </SectionLabel>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {nps.activities.map((a, i) => <InfoChip key={i}>{a}</InfoChip>)}
+              </div>
+            </div>
+          )}
+
+          {/* Topics */}
+          {nps?.topics && nps.topics.length > 0 && (
+            <div style={{ padding: "0 32px 28px" }}>
+              <SectionLabel>
+                <Tag size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
+                TOPICS
+              </SectionLabel>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {nps.topics.map((t, i) => <InfoChip key={i} muted>{t}</InfoChip>)}
+              </div>
+            </div>
+          )}
+
+          {/* Operating hours */}
+          {nps?.operatingHours && nps.operatingHours.length > 0 && (
+            <div style={{ padding: "0 32px 28px" }}>
+              <SectionLabel>
+                <Clock size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
+                HOURS
+              </SectionLabel>
+              {nps.operatingHours.map((h, i) => {
+                const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+                const dayLabels: Record<string, string> = {
+                  monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
+                  friday: "Fri", saturday: "Sat", sunday: "Sun",
+                };
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      background: "var(--surface)",
+                      border: "0.5px solid var(--hairline)",
+                      borderRadius: 12,
+                      padding: "14px 18px",
+                      marginBottom: i < nps.operatingHours.length - 1 ? 8 : 0,
+                    }}
+                  >
+                    {nps.operatingHours.length > 1 && (
+                      <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)", marginBottom: 10 }}>
+                        {h.name}
+                      </div>
+                    )}
+                    <div style={{ display: "grid", gridTemplateColumns: "48px 1fr", rowGap: 6, columnGap: 12 }}>
+                      {days.map((day) => (
+                        h.standardHours[day] != null && (
+                          <>
+                            <span
+                              key={`${day}-label`}
+                              style={{
+                                fontFamily: "var(--font-mono)",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color: "var(--ink-mute)",
+                                letterSpacing: "0.6px",
+                                paddingTop: 1,
+                              }}
+                            >
+                              {dayLabels[day]}
+                            </span>
+                            <span key={`${day}-val`} style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+                              {h.standardHours[day]}
+                            </span>
+                          </>
+                        )
+                      ))}
+                    </div>
+                    {h.description && (
+                      <div style={{ fontSize: 12, color: "var(--ink-mute)", marginTop: 10, lineHeight: 1.5 }}>
+                        {h.description}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Entrance fees */}
+          {nps?.entranceFees && nps.entranceFees.length > 0 && (
+            <div style={{ padding: "0 32px 28px" }}>
+              <SectionLabel>
+                <DollarSign size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
+                ENTRANCE FEES
+              </SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {nps.entranceFees.map((fee, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      background: "var(--surface)",
+                      border: "0.5px solid var(--hairline)",
+                      borderRadius: 12,
+                      padding: "12px 16px",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 900,
+                        fontSize: 20,
+                        color: "var(--primary)",
+                        letterSpacing: -0.5,
+                        lineHeight: 1,
+                        flexShrink: 0,
+                        paddingTop: 2,
+                      }}
+                    >
+                      ${parseFloat(fee.cost).toFixed(0)}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)", marginBottom: 2 }}>
+                        {fee.title}
+                      </div>
+                      {fee.description && (
+                        <div style={{ fontSize: 12, color: "var(--ink-mute)", lineHeight: 1.5 }}>
+                          {fee.description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Directions */}
+          {nps?.directionsInfo && (
+            <div style={{ padding: "0 32px 28px" }}>
+              <SectionLabel>
+                <Navigation size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
+                DIRECTIONS
+              </SectionLabel>
+              <div
+                style={{
+                  background: "var(--surface)",
+                  border: "0.5px solid var(--hairline)",
+                  borderRadius: 12,
+                  padding: "14px 18px",
+                }}
+              >
+                <div style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.6, marginBottom: nps.directionsUrl ? 12 : 0 }}>
+                  {nps.directionsInfo}
+                </div>
+                {nps.directionsUrl && (
+                  <a
+                    href={nps.directionsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "var(--primary)",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <ExternalLink size={12} strokeWidth={2.2} />
+                    Get directions
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Weather */}
+          {nps?.weatherInfo && (
+            <div style={{ padding: "0 32px 28px" }}>
+              <SectionLabel>
+                <Cloud size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
+                WEATHER
+              </SectionLabel>
+              <div
+                style={{
+                  background: "var(--surface)",
+                  border: "0.5px solid var(--hairline)",
+                  borderRadius: 12,
+                  padding: "14px 18px",
+                  fontSize: 13,
+                  color: "var(--ink-soft)",
+                  lineHeight: 1.6,
+                }}
+              >
+                {nps.weatherInfo}
+              </div>
+            </div>
+          )}
+
+          {/* Contact */}
+          {(nps?.phone || nps?.email || nps?.url) && (
+            <div style={{ padding: "0 32px 40px" }}>
+              <SectionLabel>CONTACT</SectionLabel>
+              <div
+                style={{
+                  background: "var(--surface)",
+                  border: "0.5px solid var(--hairline)",
+                  borderRadius: 12,
+                  padding: "14px 18px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                {nps.phone && (
+                  <a
+                    href={`tel:${nps.phone}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      textDecoration: "none",
+                      color: "var(--ink)",
+                    }}
+                  >
+                    <Phone size={14} strokeWidth={2} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
+                    <span style={{ fontSize: 13 }}>{nps.phone}</span>
+                  </a>
+                )}
+                {nps.email && (
+                  <a
+                    href={`mailto:${nps.email}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      textDecoration: "none",
+                      color: "var(--ink)",
+                    }}
+                  >
+                    <Mail size={14} strokeWidth={2} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
+                    <span style={{ fontSize: 13 }}>{nps.email}</span>
+                  </a>
+                )}
+                {nps.url && (
+                  <a
+                    href={nps.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      textDecoration: "none",
+                      color: "var(--primary)",
+                    }}
+                  >
+                    <ExternalLink size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Official NPS page</span>
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Right column — Journal ───────────────────────────────── */}

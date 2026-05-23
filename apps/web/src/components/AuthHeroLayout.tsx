@@ -21,6 +21,12 @@ const ANIMATIONS = `
   @keyframes pqFloat { 0%,100% { transform: translateY(0) rotate(var(--pq-r, 0deg)) } 50% { transform: translateY(-6px) rotate(var(--pq-r, 0deg)) } }
   @keyframes pqCloud { 0% { transform: translateX(-10%) } 100% { transform: translateX(110%) } }
   .pq-left-col::-webkit-scrollbar { display: none }
+  @media (prefers-reduced-motion: reduce) {
+    .pq-left-col *, .pq-left-col *::before, .pq-left-col *::after {
+      animation: none !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 `;
 
 // ── Static data ───────────────────────────────────────────────────────────────
@@ -28,7 +34,7 @@ const ANIMATIONS = `
 const STARS: [number, number, number, number][] = [
   [80,80,0.8,0],[160,60,0.7,0.5],[240,120,0.6,1.1],[320,80,0.85,1.8],[440,100,0.75,0.3],
   [520,140,0.6,2.2],[120,180,0.65,1.5],[280,180,0.7,0.8],[380,200,0.55,2.6],[480,180,0.7,1.3],
-  [80,220,0.6,0.9],[200,260,0.65,2.1],[60,140,0.55,3.2],
+  [80,220,0.6,0.9],[200,260,0.65,2.1],[60,140,0.55,3.2],[600,90,0.7,1.0],[700,170,0.6,0.4],
 ];
 
 const FEATURES = [

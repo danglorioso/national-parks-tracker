@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { X, Check, Bookmark, BookmarkX, ArrowRight, Pencil } from "lucide-react";
 import { fullStateName } from "@/lib/stateNames";
 
@@ -126,7 +127,20 @@ export function MapRightPanel({
   onRemoveFromBucketList,
   onEditVisit,
 }: Props) {
-  const heroPhoto = park.photos?.[0];
+  const [npsImage, setNpsImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNpsImage(null);
+    fetch(`/api/parks/${park.park_code}/images`)
+      .then((r) => r.json())
+      .then((data) => {
+        const url = data.images?.[0]?.url;
+        if (url) setNpsImage(url);
+      })
+      .catch(() => {});
+  }, [park.park_code]);
+
+  const heroPhoto = park.photos?.[0] ?? npsImage;
   const firstState = fullStateName(park.states.split(",")[0].trim());
   const lastVisitDate = park.visitedDate
     ? new Date(park.visitedDate).toLocaleDateString("en-US", {
@@ -208,17 +222,22 @@ export function MapRightPanel({
       <div style={{ flex: 1, overflowY: "auto" }}>
         {/* Name + kicker */}
         <div style={{ padding: "14px 18px 12px" }}>
-          <div
+          <a
+            href={`/parks/${park.park_code}`}
             style={{
               fontWeight: 800,
               fontSize: 22,
               color: "var(--ink)",
               letterSpacing: -0.3,
               lineHeight: 1.1,
+              textDecoration: "none",
+              display: "block",
             }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "underline"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = "none"; }}
           >
             {park.name}
-          </div>
+          </a>
           <div
             style={{
               fontFamily: "var(--font-mono)",
