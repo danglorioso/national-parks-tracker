@@ -324,7 +324,7 @@ export default function Home() {
             }}
           >
             <span style={{ color: "var(--primary)" }}>●</span>
-            {parks.length} PARKS · LEAFLET MAP
+            {visitedParksCount} VISITED · {bucketListCount} BOOKMARKED · {parks.filter(p => p.status === 'notVisited').length} UNVISITED
           </div>
         </div>
 
