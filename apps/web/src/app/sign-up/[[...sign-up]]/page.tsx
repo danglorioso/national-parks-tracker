@@ -66,7 +66,7 @@ const CLERK_APPEARANCE = {
 
 export default function SignUpPage() {
   return (
-    <AuthHeroLayout title="Start your quest." subtitle="Free, ad-free, your data stays yours.">
+    <AuthHeroLayout>
       <SignUp
         appearance={CLERK_APPEARANCE}
         routing="path"

@@ -2,8 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePathname } from "next/navigation";
-import { useSignIn, useSignUp } from "@clerk/nextjs";
+import { useSignIn, useSignUp, useUser } from "@clerk/nextjs";
 import { Map, Pencil, Award, Compass, ArrowRight } from "lucide-react";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -22,7 +21,7 @@ const ANIMATIONS = `
   @keyframes pqTopoDrift      { 0% { background-position: 0 0 } 100% { background-position: 420px 200px } }
   @keyframes pqScrollHint     { 0%,100% { transform: translateX(-50%) translateY(0); opacity: 0.7 } 50% { transform: translateX(-50%) translateY(6px); opacity: 1 } }
   @keyframes pqFloat          { 0%,100% { transform: translateY(0) rotate(var(--pq-r,0deg)) } 50% { transform: translateY(-6px) rotate(var(--pq-r,0deg)) } }
-  @keyframes pqCloud          { 0% { transform: translateX(-10%) } 100% { transform: translateX(110%) } }
+  @keyframes pqCloud          { 0% { transform: translateX(-100%) } 100% { transform: translateX(250%) } }
   @keyframes pqShootingStar   {
     0%,10%  { transform: translateX(0) translateY(0) rotate(-42deg); opacity: 0; }
     12%     { opacity: 1; }
@@ -47,9 +46,9 @@ const STARS: [number, number, number, number][] = [
 ];
 
 const SHOOTING_STARS: Array<{ right: string; top: number; width: number; delay: number; duration: number }> = [
-  { right: "28%", top: 55,  width: 90,  delay: 1,  duration: 9  },
-  { right: "14%", top: 35,  width: 70,  delay: 6,  duration: 11 },
-  { right: "42%", top: 75,  width: 100, delay: 13, duration: 8  },
+  { right: "28%", top: 55,  width: 90,  delay: 0,  duration: 22 },
+  { right: "14%", top: 35,  width: 70,  delay: 9,  duration: 28 },
+  { right: "42%", top: 75,  width: 100, delay: 18, duration: 24 },
 ];
 
 const FEATURES = [
@@ -65,7 +64,98 @@ const SCREENS = [
   { title: "Badges",       subtitle: "Five tiers of glory",  pal: ["#7B3A1F","#D89A3A","#582410"], rotate: "-1deg", delay: "3s",   mt: 0  },
 ];
 
-// ── Form components ───────────────────────────────────────────────────────────
+// ── Form components ──────────────────────────────────────────────────────────
+
+function UsernameStep() {
+  const router = useRouter();
+  const { user, isLoaded } = useUser();
+  const [username, setUsername] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const handleChange = (v: string) =>
+    setUsername(v.toLowerCase().replace(/[^a-z0-9_]/g, ""));
+
+  const handleSubmit = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!isLoaded || !user || username.length < 3) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await user.update({ username });
+      localStorage.setItem("pq_returning", "1");
+      router.push("/map");
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      setError(
+        clerkErr?.errors?.[0]?.longMessage ??
+        clerkErr?.errors?.[0]?.message ??
+        "Username taken or invalid. Try another."
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <DField label="Username" value={username} onChange={handleChange} />
+      <div
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 9.5,
+          color: "var(--ink-mute)",
+          letterSpacing: "0.6px",
+          marginBottom: 14,
+          marginTop: -4,
+        }}
+      >
+        Lowercase letters, numbers, and underscores only · 3 chars min
+      </div>
+
+      {error && (
+        <div
+          style={{
+            background: "rgba(197,107,61,0.10)",
+            border: "0.5px solid rgba(197,107,61,0.30)",
+            borderRadius: 10,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            color: "var(--accent)",
+            marginBottom: 12,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={busy || username.length < 3}
+        style={{
+          width: "100%",
+          background: "var(--primary)",
+          color: "#FFFBF1",
+          border: "none",
+          borderRadius: 12,
+          padding: "14px 0",
+          fontSize: 14,
+          fontWeight: 700,
+          cursor: busy || username.length < 3 ? "not-allowed" : "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          boxShadow: "0 8px 22px rgba(31,61,46,0.30)",
+          opacity: busy || username.length < 3 ? 0.6 : 1,
+        }}
+      >
+        Enter ParkQuest
+        <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />
+      </button>
+    </form>
+  );
+}
 
 function DField({
   label,
@@ -168,11 +258,10 @@ function GoogleGlyph() {
   );
 }
 
-function AuthForm({ mode }: { mode: "signin" | "signup" }) {
+function AuthForm({ mode, onSignUpComplete }: { mode: "signin" | "signup"; onSignUpComplete: () => void }) {
   const router = useRouter();
   const { signIn, setActive: setSIActive, isLoaded: siLoaded } = useSignIn();
   const { signUp, setActive: setSUActive, isLoaded: suLoaded } = useSignUp();
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -191,19 +280,14 @@ function AuthForm({ mode }: { mode: "signin" | "signup" }) {
         const result = await signIn!.create({ identifier: email, password });
         if (result.status === "complete") {
           await setSIActive!({ session: result.createdSessionId });
+          localStorage.setItem("pq_returning", "1");
           router.push("/map");
         }
       } else {
-        const [firstName, ...lastParts] = name.trim().split(" ");
-        const result = await signUp!.create({
-          emailAddress: email,
-          password,
-          firstName,
-          lastName: lastParts.join(" ") || undefined,
-        });
+        const result = await signUp!.create({ emailAddress: email, password });
         if (result.status === "complete") {
           await setSUActive!({ session: result.createdSessionId });
-          router.push("/map");
+          onSignUpComplete();
         }
       }
     } catch (err: unknown) {
@@ -224,7 +308,7 @@ function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       await signIn!.authenticateWithRedirect({
         strategy,
         redirectUrl: "/sign-in/sso-callback",
-        redirectUrlComplete: "/map",
+        redirectUrlComplete: "/onboarding/username",
       });
     } catch {
       setError("OAuth sign-in failed. Please try again.");
@@ -249,9 +333,40 @@ function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      {mode === "signup" && (
-        <DField label="Full Name" value={name} onChange={setName} />
-      )}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <button type="button" onClick={() => handleOAuth("oauth_apple")} style={socialBtnStyle}>
+          <AppleGlyph />
+          Apple
+        </button>
+        <button type="button" onClick={() => handleOAuth("oauth_google")} style={socialBtnStyle}>
+          <GoogleGlyph />
+          Google
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ flex: 1, height: "0.5px", background: "var(--hairline)" }} />
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            letterSpacing: "1.5px",
+            color: "var(--ink-mute)",
+            fontWeight: 600,
+          }}
+        >
+          OR
+        </span>
+        <div style={{ flex: 1, height: "0.5px", background: "var(--hairline)" }} />
+      </div>
+
       <DField label="Email" type="email" value={email} onChange={setEmail} />
       <DField
         label="Password"
@@ -315,40 +430,6 @@ function AuthForm({ mode }: { mode: "signin" | "signup" }) {
         {mode === "signin" ? "Sign In" : "Create Account"}
         <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />
       </button>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          margin: "20px 0",
-        }}
-      >
-        <div style={{ flex: 1, height: "0.5px", background: "var(--hairline)" }} />
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            letterSpacing: "1.5px",
-            color: "var(--ink-mute)",
-            fontWeight: 600,
-          }}
-        >
-          OR
-        </span>
-        <div style={{ flex: 1, height: "0.5px", background: "var(--hairline)" }} />
-      </div>
-
-      <div style={{ display: "flex", gap: 10 }}>
-        <button type="button" onClick={() => handleOAuth("oauth_apple")} style={socialBtnStyle}>
-          <AppleGlyph />
-          Apple
-        </button>
-        <button type="button" onClick={() => handleOAuth("oauth_google")} style={socialBtnStyle}>
-          <GoogleGlyph />
-          Google
-        </button>
-      </div>
     </form>
   );
 }
@@ -1180,13 +1261,14 @@ function FinalCTASection({ onAbout }: { onAbout: () => void }) {
 
 interface AuthHeroLayoutProps {
   children?: React.ReactNode;
+  forcedMode?: "username";
 }
 
-export function AuthHeroLayout({ children }: AuthHeroLayoutProps) {
+export function AuthHeroLayout({ children, forcedMode }: AuthHeroLayoutProps) {
   const leftRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
-  const isSignUpRoute = pathname?.includes("sign-up") ?? false;
-  const [mode, setMode] = useState<"signin" | "signup">(isSignUpRoute ? "signup" : "signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "username">(
+    () => forcedMode ?? (localStorage.getItem("pq_returning") ? "signin" : "signup")
+  );
 
   const scrollToAbout = () => {
     document.getElementById("about")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1261,77 +1343,89 @@ export function AuthHeroLayout({ children }: AuthHeroLayoutProps) {
             lineHeight: 1.05,
           }}
         >
-          {mode === "signin" ? "Welcome back." : "Start your quest."}
+          {mode === "signin" ? "Welcome back." : mode === "signup" ? "Start your quest." : "One last thing."}
         </div>
         <div style={{ fontSize: 14, color: "var(--ink-mute)", marginTop: 6 }}>
-          {mode === "signin" ? "Pick up where you left off." : "Free, ad-free, your data stays yours."}
+          {mode === "signin"
+            ? "Pick up where you left off."
+            : mode === "signup"
+            ? "Free, ad-free, your data stays yours."
+            : "Choose a username for your explorer profile."}
         </div>
 
-        {/* Tab switcher */}
-        <div
-          style={{
-            display: "flex",
-            background: "var(--surface-alt)",
-            borderRadius: 12,
-            padding: 4,
-            marginTop: 24,
-            gap: 4,
-          }}
-        >
-          {(["signin", "signup"] as const).map((m) => {
-            const active = mode === m;
-            return (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                style={{
-                  flex: 1,
-                  padding: "10px 0",
-                  borderRadius: 9,
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: active ? "var(--surface)" : "transparent",
-                  boxShadow: active ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-                  color: active ? "var(--ink)" : "var(--ink-mute)",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  transition: "background 150ms, color 150ms",
-                }}
-              >
-                {m === "signin" ? "Sign In" : "Create Account"}
-              </button>
-            );
-          })}
-        </div>
+        {/* Tab switcher — hidden during username step */}
+        {mode !== "username" && (
+          <div
+            style={{
+              display: "flex",
+              background: "var(--surface-alt)",
+              borderRadius: 12,
+              padding: 4,
+              marginTop: 24,
+              gap: 4,
+            }}
+          >
+            {(["signin", "signup"] as const).map((m) => {
+              const active = mode === m;
+              return (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  style={{
+                    flex: 1,
+                    padding: "6px 0",
+                    borderRadius: 9,
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: active ? "var(--surface)" : "transparent",
+                    boxShadow: active ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                    color: active ? "var(--ink)" : "var(--ink-mute)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    transition: "background 150ms, color 150ms",
+                  }}
+                >
+                  {m === "signin" ? "Sign In" : "Create Account"}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Auth form */}
+        {/* Form area */}
         <div style={{ marginTop: 18 }}>
-          <AuthForm mode={mode} />
+          {mode === "username" ? (
+            <UsernameStep />
+          ) : (
+            <AuthForm mode={mode} onSignUpComplete={() => setMode("username")} />
+          )}
         </div>
 
-        {/* Terms footer */}
-        <div
-          style={{
-            marginTop: 28,
-            fontSize: 11.5,
-            color: "var(--ink-mute)",
-            textAlign: "center",
-            lineHeight: 1.5,
-          }}
-        >
-          By continuing you agree to the{" "}
-          <a href="#" style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}>
-            Terms
-          </a>{" "}
-          and{" "}
-          <a href="#" style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}>
-            Privacy Policy
-          </a>
-          .
-        </div>
+        {/* Terms footer — hidden during username step */}
+        {mode !== "username" && (
+          <div
+            style={{
+              marginTop: 28,
+              fontSize: 11.5,
+              color: "var(--ink-mute)",
+              textAlign: "center",
+              lineHeight: 1.5,
+            }}
+          >
+            By continuing you agree to the{" "}
+            <a href="#" style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}>
+              Terms
+            </a>{" "}
+            and{" "}
+            <a href="#" style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}>
+              Privacy Policy
+            </a>
+            .
+          </div>
+        )}
 
         {/* Hidden slot for Clerk SSO callback processing */}
         <div aria-hidden style={{ position: "absolute", width: 0, height: 0, overflow: "hidden", opacity: 0, pointerEvents: "none" }}>

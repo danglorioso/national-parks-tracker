@@ -66,7 +66,7 @@ const CLERK_APPEARANCE = {
 
 export default function SignInPage() {
   return (
-    <AuthHeroLayout title="Welcome back." subtitle="Pick up where you left off.">
+    <AuthHeroLayout>
       <SignIn
         appearance={CLERK_APPEARANCE}
         routing="path"
