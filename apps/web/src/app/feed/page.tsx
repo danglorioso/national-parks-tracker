@@ -12,6 +12,7 @@ import Link from "next/link";
 import { DesktopShell } from "@/components/desktop/DesktopShell";
 import { DesktopHeader } from "@/components/desktop/DesktopHeader";
 import { DesktopButton } from "@/components/desktop/DesktopButton";
+import { CreatePostModal } from "@/components/CreatePostModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -738,6 +739,7 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [visited, setVisited] = useState(0);
   const [total, setTotal]   = useState(63);
+  const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/");
@@ -804,8 +806,20 @@ export default function FeedPage() {
   };
 
   return (
+    <>
+    {showCreate && (
+      <CreatePostModal
+        onClose={() => setShowCreate(false)}
+        onPost={() => {
+          setShowCreate(false);
+          // Refresh feed after posting
+          fetch("/api/feed").then(r => r.ok ? r.json() : []).then(setPosts).catch(() => {});
+        }}
+      />
+    )}
     <DesktopShell
       rightRail={<FeedRightRail visited={visited} total={total} />}
+      onLogVisit={() => setShowCreate(true)}
     >
       <DesktopHeader
         kicker="THE FEED"
@@ -816,7 +830,7 @@ export default function FeedPage() {
             <DesktopButton size="sm">
               <Filter size={13} strokeWidth={2} /> Filter
             </DesktopButton>
-            <DesktopButton size="sm" primary>
+            <DesktopButton size="sm" primary onClick={() => setShowCreate(true)}>
               <Plus size={13} strokeWidth={2.4} /> New post
             </DesktopButton>
           </>
@@ -881,5 +895,6 @@ export default function FeedPage() {
         )}
       </div>
     </DesktopShell>
+    </>
   );
 }
