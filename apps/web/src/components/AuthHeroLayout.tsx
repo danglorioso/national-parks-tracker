@@ -569,7 +569,7 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
             width: s.width,
             height: 1.5,
             borderRadius: 2,
-            background: "linear-gradient(90deg, transparent 0%, rgba(255,251,241,0.9) 70%, #FFFBF1 100%)",
+            background: "linear-gradient(90deg, #FFFBF1 0%, rgba(255,251,241,0.9) 30%, transparent 100%)",
             animation: `pqShootingStar ${s.duration}s ${s.delay}s ease-out infinite`,
             pointerEvents: "none",
           }}
