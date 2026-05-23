@@ -2,13 +2,14 @@
 
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Home, Sparkles, Map, User, Award, Compass,
   Check, Bookmark, PenLine, Users, Globe,
-  Plus, ChevronDown, Mountain,
+  Plus, ChevronDown, Mountain, Settings,
 } from "lucide-react";
+import { useTheme, type Palette } from "@/components/ThemeProvider";
 
 // ── Wordmark ─────────────────────────────────────────────────────────────────
 
@@ -275,6 +276,28 @@ export function DesktopShell({
   const firstName = user?.firstName ?? "Explorer";
   const avatarUrl = user?.imageUrl ?? "";
 
+  const { dark, setDark, palette, setPalette } = useTheme();
+  const [showSettings, setShowSettings] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showSettings) return;
+    const handler = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSettings]);
+
+  const PALETTES: { id: Palette; label: string; color: string }[] = [
+    { id: "forest",  label: "Forest",  color: "#1F3D2E" },
+    { id: "canyon",  label: "Canyon",  color: "#7B3A1F" },
+    { id: "glacier", label: "Glacier", color: "#2D4F66" },
+    { id: "dusk",    label: "Dusk",    color: "#3A2E5C" },
+  ];
+
   return (
     <div
       className="flex flex-col h-screen overflow-hidden"
@@ -282,22 +305,127 @@ export function DesktopShell({
     >
       {/* Title bar */}
       <div
-        className="flex items-center shrink-0 justify-end px-3"
+        className="flex items-center shrink-0 justify-end px-3 gap-2"
         style={{
           height: 36,
-          background: "rgba(255,251,241,0.95)",
+          background: "var(--surface)",
           borderBottom: "0.5px solid var(--hairline)",
+          position: "relative",
         }}
       >
+        {/* Settings button + popover */}
+        <div ref={settingsRef} style={{ position: "relative" }}>
+          <button
+            onClick={() => setShowSettings((s) => !s)}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--ink-mute)",
+              display: "flex",
+              alignItems: "center",
+              padding: "4px 6px",
+              borderRadius: 6,
+            }}
+            title="Settings"
+          >
+            <Settings className="w-[14px] h-[14px]" strokeWidth={1.8} />
+          </button>
+
+          {showSettings && (
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 6px)",
+                right: 0,
+                width: 220,
+                background: "var(--surface)",
+                border: "0.5px solid var(--hairline)",
+                borderRadius: 12,
+                boxShadow: "0 12px 36px rgba(0,0,0,0.18)",
+                padding: "12px 14px",
+                zIndex: 50,
+              }}
+            >
+              {/* Dark mode row */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 14,
+                }}
+              >
+                <div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "1.4px", color: "var(--ink-mute)", fontWeight: 600 }}>APPEARANCE</div>
+                  <div style={{ fontWeight: 600, fontSize: 12.5, color: "var(--ink)", marginTop: 2 }}>Dark mode</div>
+                </div>
+                <button
+                  onClick={() => setDark(!dark)}
+                  style={{
+                    width: 36,
+                    height: 20,
+                    borderRadius: 100,
+                    background: dark ? "var(--primary)" : "var(--hairline)",
+                    border: "none",
+                    cursor: "pointer",
+                    position: "relative",
+                    transition: "background 200ms",
+                    flexShrink: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 2,
+                      left: dark ? 18 : 2,
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: "#FFFBF1",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                      transition: "left 200ms",
+                    }}
+                  />
+                </button>
+              </div>
+
+              {/* Palette */}
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "1.4px", color: "var(--ink-mute)", fontWeight: 600, marginBottom: 8 }}>PALETTE</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                {PALETTES.map(({ id, label, color }) => (
+                  <button
+                    key={id}
+                    onClick={() => setPalette(id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      background: palette === id ? "var(--surface-alt)" : "transparent",
+                      border: palette === id ? "1px solid var(--hairline)" : "1px solid transparent",
+                      borderRadius: 8,
+                      padding: "5px 8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                    <span style={{ fontWeight: 600, fontSize: 11.5, color: "var(--ink)" }}>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Avatar pill */}
         {isLoaded && (
-          <div className="ml-auto">
+          <div>
             <div
               className="flex items-center gap-[7px] cursor-pointer"
               style={{
                 padding: "3px 9px 3px 3px",
                 borderRadius: 100,
-                background: "var(--surface)",
+                background: "var(--surface-alt)",
                 border: "0.5px solid var(--hairline)",
               }}
             >

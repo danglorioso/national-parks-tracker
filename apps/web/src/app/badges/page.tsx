@@ -7,6 +7,7 @@ import { Filter, Sparkles, Share2 } from "lucide-react";
 import { DesktopShell } from "@/components/desktop/DesktopShell";
 import { DesktopHeader } from "@/components/desktop/DesktopHeader";
 import { DesktopButton } from "@/components/desktop/DesktopButton";
+import { BadgeCelebration } from "@/components/BadgeCelebration";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -442,6 +443,7 @@ export default function BadgesPage() {
 // ── FeaturedCard ──────────────────────────────────────────────────────────────
 
 function FeaturedCard({ badge }: { badge: BadgeData }) {
+  const [celebrating, setCelebrating] = useState(false);
   const t = TIERS[badge.tier] ?? TIERS.bronze;
   const dateStr = badge.earned_at
     ? new Date(badge.earned_at)
@@ -513,7 +515,7 @@ function FeaturedCard({ badge }: { badge: BadgeData }) {
           {badge.description}
         </div>
         <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
-          <DesktopButton primary size="sm">
+          <DesktopButton primary size="sm" onClick={() => setCelebrating(true)}>
             <Sparkles size={13} strokeWidth={2} /> Replay celebration
           </DesktopButton>
           <DesktopButton size="sm">
@@ -521,6 +523,9 @@ function FeaturedCard({ badge }: { badge: BadgeData }) {
           </DesktopButton>
         </div>
       </div>
+      {celebrating && (
+        <BadgeCelebration badge={badge} onClose={() => setCelebrating(false)} />
+      )}
     </div>
   );
 }
