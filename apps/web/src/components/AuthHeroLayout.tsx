@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef } from "react";
-import Link from "next/link";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
-import { Map, Pencil, Award, Compass } from "lucide-react";
+import { useSignIn, useSignUp } from "@clerk/nextjs";
+import { Map, Pencil, Award, Compass, ArrowRight } from "lucide-react";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,12 @@ const ANIMATIONS = `
   @keyframes pqScrollHint     { 0%,100% { transform: translateX(-50%) translateY(0); opacity: 0.7 } 50% { transform: translateX(-50%) translateY(6px); opacity: 1 } }
   @keyframes pqFloat          { 0%,100% { transform: translateY(0) rotate(var(--pq-r,0deg)) } 50% { transform: translateY(-6px) rotate(var(--pq-r,0deg)) } }
   @keyframes pqCloud          { 0% { transform: translateX(-10%) } 100% { transform: translateX(110%) } }
+  @keyframes pqShootingStar   {
+    0%,10%  { transform: translateX(0) translateY(0) rotate(-42deg); opacity: 0; }
+    12%     { opacity: 1; }
+    24%     { transform: translateX(-320px) translateY(320px) rotate(-42deg); opacity: 0; }
+    100%    { transform: translateX(-320px) translateY(320px) rotate(-42deg); opacity: 0; }
+  }
   .pq-left-col::-webkit-scrollbar { display: none }
   @media (prefers-reduced-motion: reduce) {
     .pq-left-col *, .pq-left-col *::before, .pq-left-col *::after {
@@ -39,6 +46,12 @@ const STARS: [number, number, number, number][] = [
   [80,220,0.6,0.9],[200,260,0.65,2.1],[60,140,0.55,3.2],[600,90,0.7,1.0],[700,170,0.6,0.4],
 ];
 
+const SHOOTING_STARS: Array<{ right: string; top: number; width: number; delay: number; duration: number }> = [
+  { right: "28%", top: 55,  width: 90,  delay: 1,  duration: 9  },
+  { right: "14%", top: 35,  width: 70,  delay: 6,  duration: 11 },
+  { right: "42%", top: 75,  width: 100, delay: 13, duration: 8  },
+];
+
 const FEATURES = [
   { icon: Map,     title: "Every visit, mapped",  desc: "Tap a park, mark it visited. Watch your trail across the U.S. fill in over years." },
   { icon: Pencil,  title: "Journal as you go",    desc: "Notes, photos, companions, dates. Private by default — share what you want." },
@@ -52,13 +65,301 @@ const SCREENS = [
   { title: "Badges",       subtitle: "Five tiers of glory",  pal: ["#7B3A1F","#D89A3A","#582410"], rotate: "-1deg", delay: "3s",   mt: 0  },
 ];
 
+// ── Form components ───────────────────────────────────────────────────────────
+
+function DField({
+  label,
+  type = "text",
+  value,
+  onChange,
+  trailing,
+  onTrailingClick,
+}: {
+  label: string;
+  type?: string;
+  value: string;
+  onChange: (v: string) => void;
+  trailing?: string;
+  onTrailingClick?: () => void;
+}) {
+  return (
+    <div
+      style={{
+        background: "var(--surface)",
+        border: "0.5px solid var(--hairline)",
+        borderRadius: 12,
+        padding: "10px 14px",
+        marginBottom: 10,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      <div style={{ flex: 1 }}>
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            letterSpacing: "1.4px",
+            color: "var(--ink-mute)",
+            textTransform: "uppercase",
+            fontWeight: 600,
+          }}
+        >
+          {label}
+        </div>
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            border: 0,
+            outline: "none",
+            background: "transparent",
+            fontFamily: "var(--font-sans)",
+            fontWeight: 500,
+            fontSize: 15,
+            color: "var(--ink)",
+            width: "100%",
+            padding: "2px 0",
+            marginTop: 2,
+          }}
+        />
+      </div>
+      {trailing && (
+        <button
+          type="button"
+          onClick={onTrailingClick}
+          style={{
+            background: "transparent",
+            border: 0,
+            fontFamily: "var(--font-sans)",
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--ink-mute)",
+            cursor: "pointer",
+            padding: 0,
+            flexShrink: 0,
+          }}
+        >
+          {trailing}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AppleGlyph() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 814 1000" fill="currentColor">
+      <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76.5 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 376.7 0 290.8 0 209c0-144.4 93.5-220.7 185.5-220.7 49.7 0 91.2 32.7 122.8 32.7 30.2 0 77.3-34.9 134.5-34.9 54.5 0 120.4 24.3 165.5 82.6zm-113.9-232.3c21.9-25.9 37.3-62.1 37.3-98.2 0-5-.5-10.1-1.6-14.3-35.5 1.3-77.9 23.7-103.1 53.3-19.1 21.2-37.5 57.4-37.5 94.2 0 5.8.8 11.5 1.3 13.4 2.2.4 5.8.9 9.4.9 32.2 0 71.3-21.6 94.2-49.3z" />
+    </svg>
+  );
+}
+
+function GoogleGlyph() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 256 262" fill="none">
+      <path d="M255.878 133.451c0-10.734-.871-18.567-2.756-26.69H130.55v48.448h71.947c-1.45 12.04-9.283 30.172-26.69 42.356l-.244 1.622 38.755 30.023 2.685.268c24.659-22.774 38.875-56.282 38.875-96.027" fill="#4285F4" />
+      <path d="M130.55 261.1c35.248 0 64.839-11.605 86.453-31.622l-41.196-31.913c-11.024 7.688-25.82 13.055-45.257 13.055-34.523 0-63.824-22.773-74.269-54.25l-1.531.13-40.298 31.187-.527 1.465C35.393 231.798 79.49 261.1 130.55 261.1" fill="#34A853" />
+      <path d="M56.281 156.37c-2.756-8.123-4.351-16.827-4.351-25.82 0-8.994 1.595-17.697 4.206-25.82l-.073-1.73L15.26 71.312l-1.335.635C5.077 89.644 0 109.517 0 130.55s5.077 40.905 13.925 58.602l42.356-32.782" fill="#FBBC05" />
+      <path d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251" fill="#EB4335" />
+    </svg>
+  );
+}
+
+function AuthForm({ mode }: { mode: "signin" | "signup" }) {
+  const router = useRouter();
+  const { signIn, setActive: setSIActive, isLoaded: siLoaded } = useSignIn();
+  const { signUp, setActive: setSUActive, isLoaded: suLoaded } = useSignUp();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const isLoaded = mode === "signin" ? siLoaded : suLoaded;
+
+  const handleSubmit = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+    setError(null);
+    setBusy(true);
+    try {
+      if (mode === "signin") {
+        const result = await signIn!.create({ identifier: email, password });
+        if (result.status === "complete") {
+          await setSIActive!({ session: result.createdSessionId });
+          router.push("/map");
+        }
+      } else {
+        const [firstName, ...lastParts] = name.trim().split(" ");
+        const result = await signUp!.create({
+          emailAddress: email,
+          password,
+          firstName,
+          lastName: lastParts.join(" ") || undefined,
+        });
+        if (result.status === "complete") {
+          await setSUActive!({ session: result.createdSessionId });
+          router.push("/map");
+        }
+      }
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      const msg =
+        clerkErr?.errors?.[0]?.longMessage ??
+        clerkErr?.errors?.[0]?.message ??
+        "Something went wrong. Please try again.";
+      setError(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleOAuth = async (strategy: "oauth_apple" | "oauth_google") => {
+    if (!siLoaded) return;
+    try {
+      await signIn!.authenticateWithRedirect({
+        strategy,
+        redirectUrl: "/sign-in/sso-callback",
+        redirectUrlComplete: "/map",
+      });
+    } catch {
+      setError("OAuth sign-in failed. Please try again.");
+    }
+  };
+
+  const socialBtnStyle: React.CSSProperties = {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    background: "var(--surface)",
+    border: "0.5px solid var(--hairline)",
+    borderRadius: 12,
+    padding: "13px 0",
+    fontWeight: 600,
+    fontSize: 13,
+    color: "var(--ink)",
+    cursor: "pointer",
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {mode === "signup" && (
+        <DField label="Full Name" value={name} onChange={setName} />
+      )}
+      <DField label="Email" type="email" value={email} onChange={setEmail} />
+      <DField
+        label="Password"
+        type={showPw ? "text" : "password"}
+        value={password}
+        onChange={setPassword}
+        trailing={showPw ? "Hide" : "Show"}
+        onTrailingClick={() => setShowPw((v) => !v)}
+      />
+
+      {mode === "signin" && (
+        <div style={{ textAlign: "right", marginBottom: 14 }}>
+          <a
+            href="/forgot-password"
+            style={{ fontSize: 12, color: "var(--ink-mute)", fontWeight: 600, textDecoration: "none" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--primary)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--ink-mute)"; }}
+          >
+            Forgot password?
+          </a>
+        </div>
+      )}
+
+      {error && (
+        <div
+          style={{
+            background: "rgba(197,107,61,0.10)",
+            border: "0.5px solid rgba(197,107,61,0.30)",
+            borderRadius: 10,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            color: "var(--accent)",
+            marginBottom: 12,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={busy}
+        style={{
+          width: "100%",
+          background: "var(--primary)",
+          color: "#FFFBF1",
+          border: "none",
+          borderRadius: 12,
+          padding: "14px 0",
+          fontSize: 14,
+          fontWeight: 700,
+          cursor: busy ? "wait" : "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          boxShadow: "0 8px 22px rgba(31,61,46,0.30)",
+          opacity: busy ? 0.7 : 1,
+        }}
+      >
+        {mode === "signin" ? "Sign In" : "Create Account"}
+        <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />
+      </button>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          margin: "20px 0",
+        }}
+      >
+        <div style={{ flex: 1, height: "0.5px", background: "var(--hairline)" }} />
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            letterSpacing: "1.5px",
+            color: "var(--ink-mute)",
+            fontWeight: 600,
+          }}
+        >
+          OR
+        </span>
+        <div style={{ flex: 1, height: "0.5px", background: "var(--hairline)" }} />
+      </div>
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <button type="button" onClick={() => handleOAuth("oauth_apple")} style={socialBtnStyle}>
+          <AppleGlyph />
+          Apple
+        </button>
+        <button type="button" onClick={() => handleOAuth("oauth_google")} style={socialBtnStyle}>
+          <GoogleGlyph />
+          Google
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ── Sections ──────────────────────────────────────────────────────────────────
 
 function HeroSection({ onScroll }: { onScroll: () => void }) {
   return (
     <div
       style={{
-        height: 800,
+        height: "100vh",
         position: "relative",
         overflow: "hidden",
         display: "flex",
@@ -176,6 +477,24 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
         />
       ))}
 
+      {/* Shooting stars */}
+      {SHOOTING_STARS.map((s, i) => (
+        <div
+          key={`ss-${i}`}
+          style={{
+            position: "absolute",
+            top: s.top,
+            right: s.right,
+            width: s.width,
+            height: 1.5,
+            borderRadius: 2,
+            background: "linear-gradient(90deg, transparent 0%, rgba(255,251,241,0.9) 70%, #FFFBF1 100%)",
+            animation: `pqShootingStar ${s.duration}s ${s.delay}s ease-out infinite`,
+            pointerEvents: "none",
+          }}
+        />
+      ))}
+
       {/* Wordmark */}
       <div
         style={{
@@ -184,12 +503,27 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
           left: 40,
           color: "#FFFBF1",
           zIndex: 2,
-          fontSize: 22,
-          fontWeight: 700,
-          letterSpacing: -0.4,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
         }}
       >
-        Park<strong style={{ fontWeight: 900 }}>Quest</strong>
+        <svg
+          width="26"
+          height="26"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 20L9 9l3 5 3-7 6 13H3z" />
+          <circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none" />
+        </svg>
+        <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: -0.4 }}>
+          Park<span style={{ fontWeight: 500 }}>Quest</span>
+        </div>
       </div>
 
       {/* Tagline */}
@@ -210,11 +544,11 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
             fontWeight: 800,
             fontSize: 64,
             letterSpacing: -1.6,
-            lineHeight: 0.95,
+            lineHeight: 1,
             marginTop: 18,
           }}
         >
-          Every park.<br />One journal.<br />Yours forever.
+          Every park.<br />One journal.<br />
         </div>
         <div
           style={{
@@ -280,6 +614,7 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
 function AboutSection() {
   return (
     <div
+      id="about"
       style={{
         padding: "80px 60px",
         background: "rgba(255,251,241,0.04)",
@@ -297,7 +632,7 @@ function AboutSection() {
             fontWeight: 600,
           }}
         >
-          ABOUT · WRITTEN BY THE FOUNDER
+          ABOUT
         </div>
         <div
           style={{
@@ -320,27 +655,25 @@ function AboutSection() {
           }}
         >
           <p style={{ margin: 0, marginBottom: 14 }}>
-            <em
-              style={{
-                background: "rgba(255,210,150,0.18)",
-                padding: "0 4px",
-                borderRadius: 3,
-                fontStyle: "normal",
-              }}
-            >
-              ← Replace this text with your own about copy.
-            </em>{" "}
-            I started keeping a notebook in 2019 — date, park, who I was with, three sentences
-            about what I saw. By the time I&apos;d visited a dozen parks I had a stack of
-            receipts and trail maps stuffed into the back cover. I wanted something better.
+            I grew up taking family vacations roadtripping around the country to different
+            national parks every summer. Through these trips, I gained a deep appreciation for
+            the natural beauty and massive diversity within our national parks.
           </p>
           <p style={{ margin: 0, marginBottom: 14 }}>
-            ParkQuest is the journal I wished existed. Every park you visit becomes a stamp.
-            Every milestone earns a badge. Your friends see your wins. Your future trips live
-            on the same map as your past ones.
+            Over the years, I&apos;ve really enjoyed hiking and exploring more national parks.
+            Each park really has its own unique charm and fascinating story, and I love how
+            the national parks have allowed me to discover natural beauties that lie within the US.
+          </p>
+          <p style={{ margin: 0, marginBottom: 14 }}>
+            That&apos;s why I created this app — to keep track of where you&apos;ve been and
+            to help other adventurers who, like me, enjoy experiencing new regions of the country.
+            Whether you&apos;re planning an upcoming park visit or working toward checking all 63
+            national parks off your list, I&apos;ve designed this app to help you document your
+            journeys and share your experiences with others.
           </p>
           <p style={{ margin: 0 }}>
-            It&apos;s free, ad-free, and your data stays yours. Welcome.
+            I hope this app motivates you to visit even more of these incredible places.
+            Happy exploring!
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 30 }}>
@@ -374,7 +707,7 @@ function AboutSection() {
                 fontWeight: 600,
               }}
             >
-              FOUNDER · 12 OF 63 VISITED
+              FOUNDER
             </div>
           </div>
         </div>
@@ -415,7 +748,7 @@ function FeaturesSection() {
           maxWidth: 480,
         }}
       >
-        Built for explorers,<br />not couch-loggers.
+        Built for explorers,<br /> and everyone else.
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 32 }}>
         {FEATURES.map((f, i) => (
@@ -730,7 +1063,7 @@ function SocialProofSection() {
   );
 }
 
-function FinalCTASection() {
+function FinalCTASection({ onAbout }: { onAbout: () => void }) {
   return (
     <div
       style={{
@@ -779,7 +1112,7 @@ function FinalCTASection() {
             marginTop: 14,
           }}
         >
-          63 parks.<br />One quest.<br />Yours.
+          63 parks.<br />One quest.<br />
         </div>
         <div
           style={{
@@ -789,13 +1122,14 @@ function FinalCTASection() {
             marginTop: 18,
           }}
         >
-          Create an account on the right →<br />or sign in if you&apos;ve already started.
+          Scroll up to sign in or create an account.
         </div>
 
         <div
           style={{
             display: "flex",
             justifyContent: "center",
+            alignItems: "center",
             gap: 22,
             marginTop: 50,
             fontFamily: "var(--font-mono)",
@@ -805,7 +1139,23 @@ function FinalCTASection() {
             fontWeight: 600,
           }}
         >
-          {["ABOUT", "PRIVACY", "TERMS", "CONTACT", "CHANGELOG"].map((l) => (
+          <button
+            onClick={onAbout}
+            style={{
+              background: "transparent",
+              border: 0,
+              color: "rgba(255,251,241,0.55)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              letterSpacing: "1.2px",
+              fontWeight: 600,
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            ABOUT
+          </button>
+          {["PRIVACY", "TERMS", "CONTACT", "CHANGELOG"].map((l) => (
             <span key={l} style={{ cursor: "pointer" }}>{l}</span>
           ))}
         </div>
@@ -829,23 +1179,17 @@ function FinalCTASection() {
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 interface AuthHeroLayoutProps {
-  title?: string;
-  subtitle?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
-export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProps) {
+export function AuthHeroLayout({ children }: AuthHeroLayoutProps) {
   const leftRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const isSignUp = pathname?.includes("sign-up") ?? false;
+  const isSignUpRoute = pathname?.includes("sign-up") ?? false;
+  const [mode, setMode] = useState<"signin" | "signup">(isSignUpRoute ? "signup" : "signin");
 
-  const headline = title ?? (isSignUp ? "Start your quest." : "Welcome back.");
-  const sub = subtitle ?? (isSignUp ? "Free, ad-free, your data stays yours." : "Pick up where you left off.");
-
-  const scrollDown = () => {
-    if (leftRef.current) {
-      leftRef.current.scrollTo({ top: leftRef.current.clientHeight, behavior: "smooth" });
-    }
+  const scrollToAbout = () => {
+    document.getElementById("about")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
@@ -870,12 +1214,12 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
           background: "linear-gradient(180deg, var(--primary-deep) 0%, var(--primary) 50%, var(--primary-deep) 100%)",
         }}
       >
-        <HeroSection onScroll={scrollDown} />
+        <HeroSection onScroll={scrollToAbout} />
         <AboutSection />
         <FeaturesSection />
         <ScreenshotsSection />
         <SocialProofSection />
-        <FinalCTASection />
+        <FinalCTASection onAbout={scrollToAbout} />
       </div>
 
       {/* Right — sticky sign-in/sign-up form */}
@@ -903,7 +1247,7 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
             fontWeight: 600,
           }}
         >
-          NATIONAL PARK SERVICE · DIGITAL
+          DIGITAL NATIONAL PARK JOURNAL
         </div>
 
         {/* Headline + sub */}
@@ -917,10 +1261,10 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
             lineHeight: 1.05,
           }}
         >
-          {headline}
+          {mode === "signin" ? "Welcome back." : "Start your quest."}
         </div>
         <div style={{ fontSize: 14, color: "var(--ink-mute)", marginTop: 6 }}>
-          {sub}
+          {mode === "signin" ? "Pick up where you left off." : "Free, ad-free, your data stays yours."}
         </div>
 
         {/* Tab switcher */}
@@ -934,17 +1278,18 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
             gap: 4,
           }}
         >
-          {(["sign-in", "sign-up"] as const).map((mode) => {
-            const active = mode === "sign-in" ? !isSignUp : isSignUp;
+          {(["signin", "signup"] as const).map((m) => {
+            const active = mode === m;
             return (
-              <Link
-                key={mode}
-                href={`/${mode}`}
+              <button
+                key={m}
+                onClick={() => setMode(m)}
                 style={{
                   flex: 1,
                   padding: "10px 0",
                   borderRadius: 9,
-                  textDecoration: "none",
+                  border: "none",
+                  cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -956,14 +1301,16 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
                   transition: "background 150ms, color 150ms",
                 }}
               >
-                {mode === "sign-in" ? "Sign In" : "Create Account"}
-              </Link>
+                {m === "signin" ? "Sign In" : "Create Account"}
+              </button>
             );
           })}
         </div>
 
         {/* Auth form */}
-        <div style={{ marginTop: 18 }}>{children}</div>
+        <div style={{ marginTop: 18 }}>
+          <AuthForm mode={mode} />
+        </div>
 
         {/* Terms footer */}
         <div
@@ -984,6 +1331,11 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
             Privacy Policy
           </a>
           .
+        </div>
+
+        {/* Hidden slot for Clerk SSO callback processing */}
+        <div aria-hidden style={{ position: "absolute", width: 0, height: 0, overflow: "hidden", opacity: 0, pointerEvents: "none" }}>
+          {children}
         </div>
       </div>
     </div>
