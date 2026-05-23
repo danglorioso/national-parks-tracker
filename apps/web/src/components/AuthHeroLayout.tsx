@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Map, Pencil, Award, Compass } from "lucide-react";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -11,15 +13,15 @@ function topoPattern(color: string, opacity: number): string {
 }
 
 const ANIMATIONS = `
-  @keyframes pqStarTwinkle { 0%,100% { opacity: var(--o,0.7) } 50% { opacity: calc(var(--o,0.7) * 0.35) } }
+  @keyframes pqStarTwinkle    { 0%,100% { opacity: var(--o,0.7) } 50% { opacity: calc(var(--o,0.7) * 0.35) } }
   @keyframes pqMountainDriftA { 0%,100% { transform: translateX(0) translateY(0) } 50% { transform: translateX(-1.2%) translateY(0.3%) } }
   @keyframes pqMountainDriftB { 0%,100% { transform: translateX(0) } 50% { transform: translateX(1%) } }
   @keyframes pqMountainDriftC { 0%,100% { transform: translateX(0) } 50% { transform: translateX(-0.5%) } }
-  @keyframes pqSunGlow { 0%,100% { opacity: 0.55; transform: scale(1) } 50% { opacity: 0.85; transform: scale(1.04) } }
-  @keyframes pqTopoDrift { 0% { background-position: 0 0 } 100% { background-position: 420px 200px } }
-  @keyframes pqScrollHint { 0%,100% { transform: translateX(-50%) translateY(0); opacity: 0.7 } 50% { transform: translateX(-50%) translateY(6px); opacity: 1 } }
-  @keyframes pqFloat { 0%,100% { transform: translateY(0) rotate(var(--pq-r, 0deg)) } 50% { transform: translateY(-6px) rotate(var(--pq-r, 0deg)) } }
-  @keyframes pqCloud { 0% { transform: translateX(-10%) } 100% { transform: translateX(110%) } }
+  @keyframes pqSunGlow        { 0%,100% { opacity: 0.55; transform: scale(1) } 50% { opacity: 0.85; transform: scale(1.04) } }
+  @keyframes pqTopoDrift      { 0% { background-position: 0 0 } 100% { background-position: 420px 200px } }
+  @keyframes pqScrollHint     { 0%,100% { transform: translateX(-50%) translateY(0); opacity: 0.7 } 50% { transform: translateX(-50%) translateY(6px); opacity: 1 } }
+  @keyframes pqFloat          { 0%,100% { transform: translateY(0) rotate(var(--pq-r,0deg)) } 50% { transform: translateY(-6px) rotate(var(--pq-r,0deg)) } }
+  @keyframes pqCloud          { 0% { transform: translateX(-10%) } 100% { transform: translateX(110%) } }
   .pq-left-col::-webkit-scrollbar { display: none }
   @media (prefers-reduced-motion: reduce) {
     .pq-left-col *, .pq-left-col *::before, .pq-left-col *::after {
@@ -56,7 +58,7 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
   return (
     <div
       style={{
-        height: "100vh",
+        height: 800,
         position: "relative",
         overflow: "hidden",
         display: "flex",
@@ -84,8 +86,7 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
           width: 220,
           height: 220,
           borderRadius: "50%",
-          background:
-            "radial-gradient(circle, #D89A3A 0%, rgba(216,154,58,0.53) 30%, transparent 70%)",
+          background: "radial-gradient(circle, var(--accent-2) 0%, rgba(216,154,58,0.53) 30%, transparent 70%)",
           filter: "blur(8px)",
           animation: "pqSunGlow 8s ease-in-out infinite",
         }}
@@ -154,7 +155,7 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
         />
       </svg>
 
-      {/* Stars */}
+      {/* 15 stars */}
       {STARS.map(([x, y, o, delay], i) => (
         <div
           key={i}
@@ -183,17 +184,16 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
           left: 40,
           color: "#FFFBF1",
           zIndex: 2,
-          fontSize: 17,
+          fontSize: 22,
           fontWeight: 700,
+          letterSpacing: -0.4,
         }}
       >
         Park<strong style={{ fontWeight: 900 }}>Quest</strong>
       </div>
 
       {/* Tagline */}
-      <div
-        style={{ position: "relative", padding: "0 40px 100px", color: "#FFFBF1", zIndex: 2 }}
-      >
+      <div style={{ position: "relative", padding: "0 40px 100px", color: "#FFFBF1", zIndex: 2 }}>
         <div
           style={{
             fontFamily: "var(--font-mono)",
@@ -230,7 +230,7 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
         </div>
       </div>
 
-      {/* Scroll-down indicator */}
+      {/* Animated scroll-down indicator */}
       <button
         onClick={onScroll}
         style={{
@@ -320,6 +320,16 @@ function AboutSection() {
           }}
         >
           <p style={{ margin: 0, marginBottom: 14 }}>
+            <em
+              style={{
+                background: "rgba(255,210,150,0.18)",
+                padding: "0 4px",
+                borderRadius: 3,
+                fontStyle: "normal",
+              }}
+            >
+              ← Replace this text with your own about copy.
+            </em>{" "}
             I started keeping a notebook in 2019 — date, park, who I was with, three sentences
             about what I saw. By the time I&apos;d visited a dozen parks I had a stack of
             receipts and trail maps stuffed into the back cover. I wanted something better.
@@ -339,8 +349,8 @@ function AboutSection() {
               width: 44,
               height: 44,
               borderRadius: "50%",
-              background: "#2F7A4A",
-              border: "2px solid #152A20",
+              background: "var(--visited)",
+              border: "2px solid var(--primary-deep)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -364,7 +374,7 @@ function AboutSection() {
                 fontWeight: 600,
               }}
             >
-              FOUNDER
+              FOUNDER · 12 OF 63 VISITED
             </div>
           </div>
         </div>
@@ -407,20 +417,16 @@ function FeaturesSection() {
       >
         Built for explorers,<br />not couch-loggers.
       </div>
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 32 }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 32 }}>
         {FEATURES.map((f, i) => (
           <div
             key={i}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLDivElement).style.background =
-                "rgba(255,251,241,0.10)";
+              (e.currentTarget as HTMLDivElement).style.background = "rgba(255,251,241,0.10)";
               (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)";
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLDivElement).style.background =
-                "rgba(255,251,241,0.06)";
+              (e.currentTarget as HTMLDivElement).style.background = "rgba(255,251,241,0.06)";
               (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
             }}
             style={{
@@ -429,6 +435,7 @@ function FeaturesSection() {
               borderRadius: 14,
               padding: "22px 22px 24px",
               transition: "transform 220ms cubic-bezier(.2,.7,.3,1), background 220ms",
+              cursor: "default",
             }}
           >
             <div
@@ -436,7 +443,7 @@ function FeaturesSection() {
                 width: 44,
                 height: 44,
                 borderRadius: 12,
-                background: "#D89A3A",
+                background: "var(--accent-2)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -534,13 +541,7 @@ function ScreenPreview({
           }}
         />
         <div
-          style={{
-            position: "absolute",
-            bottom: 14,
-            left: 14,
-            right: 14,
-            color: "#FFFBF1",
-          }}
+          style={{ position: "absolute", bottom: 14, left: 14, right: 14, color: "#FFFBF1" }}
         >
           <div
             style={{
@@ -638,12 +639,12 @@ function SocialProofSection() {
             <div
               key={i}
               style={{
-                marginLeft: i === 0 ? 0 : -12,
+                marginLeft: i === 0 ? 0 : -10,
                 width: 48,
                 height: 48,
                 borderRadius: "50%",
                 background: color,
-                border: "2px solid #152A20",
+                border: "2px solid var(--primary-deep)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -658,9 +659,7 @@ function SocialProofSection() {
           ))}
         </div>
         <div style={{ flex: 1 }}>
-          <div
-            style={{ fontWeight: 800, fontSize: 28, color: "#FFFBF1", letterSpacing: -0.6 }}
-          >
+          <div style={{ fontWeight: 800, fontSize: 28, color: "#FFFBF1", letterSpacing: -0.6 }}>
             24,318 explorers
           </div>
           <div
@@ -673,7 +672,7 @@ function SocialProofSection() {
               fontWeight: 600,
             }}
           >
-            148,290 STAMPS · 1,842 BADGES EARNED THIS MONTH
+            148,290 STAMPS · 1,842 BADGES EARNED THIS MONTH · 12 NEW PARKS LOGGED TODAY
           </div>
         </div>
       </div>
@@ -698,7 +697,7 @@ function SocialProofSection() {
               width: 32,
               height: 32,
               borderRadius: "50%",
-              background: "#2F7A4A",
+              background: "var(--visited)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -736,7 +735,7 @@ function FinalCTASection() {
     <div
       style={{
         padding: "80px 60px 100px",
-        background: "linear-gradient(180deg, #1F3D2E 0%, #152A20 100%)",
+        background: "linear-gradient(180deg, var(--primary) 0%, var(--primary-deep) 100%)",
         position: "relative",
         overflow: "hidden",
       }}
@@ -830,13 +829,18 @@ function FinalCTASection() {
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 interface AuthHeroLayoutProps {
-  title: string;
-  subtitle: string;
+  title?: string;
+  subtitle?: string;
   children: React.ReactNode;
 }
 
 export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProps) {
   const leftRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const isSignUp = pathname?.includes("sign-up") ?? false;
+
+  const headline = title ?? (isSignUp ? "Start your quest." : "Welcome back.");
+  const sub = subtitle ?? (isSignUp ? "Free, ad-free, your data stays yours." : "Pick up where you left off.");
 
   const scrollDown = () => {
     if (leftRef.current) {
@@ -850,7 +854,6 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
         display: "flex",
         height: "100vh",
         overflow: "hidden",
-        background: "var(--bg)",
       }}
     >
       <style>{ANIMATIONS}</style>
@@ -864,7 +867,7 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
           overflowY: "auto",
           overflowX: "hidden",
           scrollbarWidth: "none",
-          background: "linear-gradient(180deg, #152A20 0%, #1F3D2E 50%, #152A20 100%)",
+          background: "linear-gradient(180deg, var(--primary-deep) 0%, var(--primary) 50%, var(--primary-deep) 100%)",
         }}
       >
         <HeroSection onScroll={scrollDown} />
@@ -889,6 +892,7 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
           overflowY: "auto",
         }}
       >
+        {/* Kicker */}
         <div
           style={{
             fontFamily: "var(--font-mono)",
@@ -901,6 +905,8 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
         >
           NATIONAL PARK SERVICE · DIGITAL
         </div>
+
+        {/* Headline + sub */}
         <div
           style={{
             fontWeight: 800,
@@ -911,17 +917,58 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
             lineHeight: 1.05,
           }}
         >
-          {title}
+          {headline}
         </div>
         <div style={{ fontSize: 14, color: "var(--ink-mute)", marginTop: 6 }}>
-          {subtitle}
+          {sub}
         </div>
 
-        <div style={{ marginTop: 24 }}>{children}</div>
-
+        {/* Tab switcher */}
         <div
           style={{
-            marginTop: 36,
+            display: "flex",
+            background: "var(--surface-alt)",
+            borderRadius: 12,
+            padding: 4,
+            marginTop: 24,
+            gap: 4,
+          }}
+        >
+          {(["sign-in", "sign-up"] as const).map((mode) => {
+            const active = mode === "sign-in" ? !isSignUp : isSignUp;
+            return (
+              <Link
+                key={mode}
+                href={`/${mode}`}
+                style={{
+                  flex: 1,
+                  padding: "10px 0",
+                  borderRadius: 9,
+                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: active ? "var(--surface)" : "transparent",
+                  boxShadow: active ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  color: active ? "var(--ink)" : "var(--ink-mute)",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  transition: "background 150ms, color 150ms",
+                }}
+              >
+                {mode === "sign-in" ? "Sign In" : "Create Account"}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Auth form */}
+        <div style={{ marginTop: 18 }}>{children}</div>
+
+        {/* Terms footer */}
+        <div
+          style={{
+            marginTop: 28,
             fontSize: 11.5,
             color: "var(--ink-mute)",
             textAlign: "center",
@@ -929,17 +976,11 @@ export function AuthHeroLayout({ title, subtitle, children }: AuthHeroLayoutProp
           }}
         >
           By continuing you agree to the{" "}
-          <a
-            href="#"
-            style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}
-          >
+          <a href="#" style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}>
             Terms
           </a>{" "}
           and{" "}
-          <a
-            href="#"
-            style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}
-          >
+          <a href="#" style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}>
             Privacy Policy
           </a>
           .
