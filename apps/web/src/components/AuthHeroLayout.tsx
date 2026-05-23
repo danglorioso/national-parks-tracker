@@ -367,7 +367,7 @@ function AuthForm({ mode, onSignUpComplete }: { mode: "signin" | "signup"; onSig
         <div style={{ flex: 1, height: "0.5px", background: "var(--hairline)" }} />
       </div>
 
-      <DField label="Email" type="email" value={email} onChange={setEmail} />
+      <DField label={mode === "signin" ? "Email or Username" : "Email"} type={mode === "signin" ? "text" : "email"} value={email} onChange={setEmail} />
       <DField
         label="Password"
         type={showPw ? "text" : "password"}
@@ -503,8 +503,10 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
         preserveAspectRatio="xMidYMax slice"
         style={{
           position: "absolute",
-          inset: 0,
-          width: "100%",
+          top: 0,
+          bottom: 0,
+          left: "-5%",
+          width: "110%",
           height: "100%",
           animation: "pqMountainDriftC 24s ease-in-out infinite",
         }}
@@ -1241,16 +1243,30 @@ function FinalCTASection({ onAbout }: { onAbout: () => void }) {
           >
             ABOUT
           </button>
-          {["PRIVACY", "TERMS", "CONTACT", "CHANGELOG"].map((l) => (
-            <span
-              key={l}
-              style={{ cursor: "pointer", transition: "color 120ms" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLSpanElement).style.color = "rgba(255,251,241,0.85)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLSpanElement).style.color = ""; }}
-            >
-              {l}
-            </span>
-          ))}
+          {["PRIVACY", "TERMS", "CONTACT", "CHANGELOG"].map((l) =>
+            l === "CONTACT" ? (
+              <a
+                key={l}
+                href="https://danglorioso.com/contact"
+                target="_blank"
+                rel="noreferrer"
+                style={{ cursor: "pointer", transition: "color 120ms", color: "inherit", textDecoration: "none" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,251,241,0.85)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "inherit"; }}
+              >
+                {l}
+              </a>
+            ) : (
+              <span
+                key={l}
+                style={{ cursor: "pointer", transition: "color 120ms" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLSpanElement).style.color = "rgba(255,251,241,0.85)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLSpanElement).style.color = ""; }}
+              >
+                {l}
+              </span>
+            )
+          )}
         </div>
 
         {/* Credit block */}
