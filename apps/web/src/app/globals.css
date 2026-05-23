@@ -194,9 +194,14 @@ button, [role="button"], a {
   animation: fadeIn 0.2s ease-out, slideDown 0.2s ease-out;
 }
 
-/* Keep Leaflet map behind other elements */
+/* Keep Leaflet map tiles behind floating panels but above shell bg */
 .leaflet-container {
-  z-index: -1;
+  z-index: 0;
+}
+
+/* Warm cream toning for CartoDB light_all tiles */
+.leaflet-tile-pane {
+  filter: sepia(18%) saturate(80%) brightness(104%);
 }
 
 /* Fix for day-picker blue ring bug */

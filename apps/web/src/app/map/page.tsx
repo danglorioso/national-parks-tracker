@@ -3,11 +3,9 @@
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Nav from "@/components/NavBar";
-import ProgressCard from "@/components/ProgressCard";
-import QuickStats from "@/components/QuickStats";
-import RecentVisits from "@/components/RecentBadges";
-import Legend from "@/components/Legend";
+import { DesktopShell } from "@/components/desktop/DesktopShell";
+import { MapLeftPanel, type FilterStatus } from "@/components/desktop/MapLeftPanel";
+import { MapRightPanel } from "@/components/desktop/MapRightPanel";
 import Map from "@/components/Map";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
 import EditVisitDialog from "@/components/EditVisitDialog";
@@ -35,14 +33,6 @@ interface ParkForMap {
   visibility?: string | null;
 }
 
-type FilterStatus = 'all' | 'visited' | 'bucketList' | 'notVisited';
-
-const FILTERS: { key: FilterStatus; label: string }[] = [
-  { key: 'all', label: 'All Parks' },
-  { key: 'visited', label: 'Visited' },
-  { key: 'bucketList', label: 'Bucket List' },
-  { key: 'notVisited', label: 'Unvisited' },
-];
 
 export default function Home() {
   const { isSignedIn, isLoaded } = useUser();
@@ -56,7 +46,13 @@ export default function Home() {
   const [pendingParkCode, setPendingParkCode] = useState<string | null>(null);
   const [pendingParkName, setPendingParkName] = useState<string>("");
   const [pendingEdit, setPendingEdit] = useState<ParkForMap | null>(null);
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [selectedParkCode, setSelectedParkCode] = useState<string | null>(null);
+
+  // Derive selected park from parks state so it auto-updates after status changes
+  const selectedPark = selectedParkCode
+    ? parks.find((p) => p.park_code === selectedParkCode) ?? null
+    : null;
 
   useEffect(() => {
     if (!isSignedIn && isLoaded) {
@@ -264,90 +260,71 @@ export default function Home() {
 
   if (isSignedIn) {
     return (
-      <div className="flex flex-col h-screen">
-        <Nav />
+      <DesktopShell fullbleed onLogVisit={() => handleMarkVisited(parks.find(p => p.status !== "visited")?.park_code ?? "")}>
+        {/* Full-bleed map area with absolute floating panels */}
+        <div className="relative h-full w-full" style={{ background: "#E8E2D0" }}>
 
-        <div className="flex flex-1 flex-col md:flex-row min-h-0 overflow-hidden">
+          {/* Leaflet map */}
+          <Map
+            center={[39.8283, -98.5795]}
+            zoom={4}
+            className="h-full w-full"
+            parks={filteredParks}
+            selectedParkCode={selectedParkCode}
+            onSelectPark={setSelectedParkCode}
+          />
 
-          {/* ── Left Sidebar ── */}
-          <div className="w-full md:w-72 bg-white border-r border-gray-200 overflow-y-auto p-5 max-h-[40vh] md:max-h-none space-y-6 shrink-0">
-            <ProgressCard
-              visitedCount={visitedParksCount}
-              totalCount={totalParksCount}
-              loading={isLoadingParks}
+          {/* Left floating panel — park list + filter */}
+          <MapLeftPanel
+            parks={parks}
+            filterStatus={filterStatus}
+            onFilterChange={(f) => {
+              setFilterStatus(f);
+              setSelectedParkCode(null);
+            }}
+            selectedParkCode={selectedParkCode}
+            onSelectPark={setSelectedParkCode}
+            loading={isLoadingParks}
+          />
+
+          {/* Right floating panel — park detail peek */}
+          {selectedPark && (
+            <MapRightPanel
+              park={selectedPark}
+              onClose={() => setSelectedParkCode(null)}
+              onMarkVisited={() => handleMarkVisited(selectedPark.park_code)}
+              onAddToBucketList={() => handleAddToBucketList(selectedPark.park_code)}
+              onRemoveFromBucketList={() => handleRemoveFromBucketList(selectedPark.park_code)}
+              onEditVisit={() => setPendingEdit(selectedPark)}
             />
-            <QuickStats
-              statesVisited={statesVisited}
-              parksThisYear={parksThisYear}
-              bucketListCount={bucketListCount}
-              unvisitedCount={unvisitedCount}
-              loading={isLoadingParks}
-            />
-            <RecentVisits visits={recentVisits} loading={isLoadingParks} />
-          </div>
+          )}
 
-          {/* ── Right: filter bar + map ── */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-
-            {/* Filter bar */}
-            <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-2 shrink-0">
-              {FILTERS.map(({ key, label }) => {
-                const counts: Record<FilterStatus, number> = {
-                  all: parks.length,
-                  visited: visitedParksCount,
-                  bucketList: bucketListCount,
-                  notVisited: unvisitedCount,
-                };
-                const isActive = filterStatus === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setFilterStatus(key)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {label}
-                    {!isLoadingParks && (
-                      <span className={`text-xs rounded-full px-1.5 py-0.5 ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-white text-gray-500'
-                      }`}>
-                        {counts[key]}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Map */}
-            <div className="flex-1 relative overflow-hidden z-0">
-              {isLoadingParks ? (
-                <div className="flex items-center justify-center h-full bg-gray-100 animate-pulse" />
-              ) : (
-                <>
-                  <Map
-                    center={[39.8283, -98.5795]}
-                    zoom={4}
-                    className="h-full w-full"
-                    parks={filteredParks}
-                    onMarkVisited={handleMarkVisited}
-                    onAddToBucketList={handleAddToBucketList}
-                    onRemoveFromBucketList={handleRemoveFromBucketList}
-                    onMarkNotVisited={handleMarkNotVisited}
-                    onEditVisit={(parkCode) => {
-                      const park = parks.find(p => p.park_code === parkCode);
-                      if (park) setPendingEdit(park);
-                    }}
-                  />
-                  <div className="absolute bottom-4 left-4 z-[100]">
-                    <Legend />
-                  </div>
-                </>
-              )}
-            </div>
+          {/* Top-center pill */}
+          <div
+            style={{
+              position: "absolute",
+              top: 14,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 15,
+              background: "rgba(255,251,241,0.85)",
+              backdropFilter: "blur(20px)",
+              border: "0.5px solid var(--hairline)",
+              borderRadius: 100,
+              padding: "6px 14px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              whiteSpace: "nowrap",
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              color: "var(--ink-soft)",
+              letterSpacing: "1.4px",
+              fontWeight: 600,
+            }}
+          >
+            <span style={{ color: "var(--primary)" }}>●</span>
+            {parks.length} PARKS · LEAFLET MAP
           </div>
         </div>
 
@@ -376,7 +353,7 @@ export default function Home() {
             }}
           />
         )}
-      </div>
+      </DesktopShell>
     );
   }
 }
