@@ -6,7 +6,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
-  ChevronLeft, PenLine, MapPin, Plus, ExternalLink, Phone, Mail, Clock, DollarSign, Navigation, Cloud, Tag, Footprints,
+  ChevronLeft, ChevronRight, PenLine, MapPin, Plus, ExternalLink, Phone, Mail, Clock, DollarSign, Navigation, Cloud, Tag, Footprints, X,
 } from "lucide-react";
 import { DesktopShell } from "@/components/desktop/DesktopShell";
 import { DesktopButton } from "@/components/desktop/DesktopButton";
@@ -167,18 +167,90 @@ function StatTile({ label, value, unit, border }: { label: string; value: string
   );
 }
 
+// ── LightboxModal ─────────────────────────────────────────────────────────────
+
+function LightboxModal({ images, startIndex, onClose }: { images: string[]; startIndex: number; onClose: () => void }) {
+  const [idx, setIdx] = useState(startIndex);
+  const prev = () => setIdx((i) => (i - 1 + images.length) % images.length);
+  const next = () => setIdx((i) => (i + 1) % images.length);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") prev();
+      else if (e.key === "ArrowRight") next();
+      else if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: "rgba(0,0,0,0.88)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}
+    >
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "50%", width: 40, height: 40, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
+      >
+        <X size={18} />
+      </button>
+
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); prev(); }}
+            style={{ position: "absolute", left: 20, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "50%", width: 48, height: 48, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); next(); }}
+            style={{ position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "50%", width: 48, height: 48, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
+          >
+            <ChevronRight size={22} />
+          </button>
+        </>
+      )}
+
+      <img
+        src={images[idx]}
+        alt=""
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: "90vw", maxHeight: "88vh", objectFit: "contain", borderRadius: 10, userSelect: "none" }}
+      />
+
+      {images.length > 1 && (
+        <div style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6 }}>
+          {images.map((_, i) => (
+            <div key={i} onClick={(e) => { e.stopPropagation(); setIdx(i); }} style={{ width: 6, height: 6, borderRadius: "50%", background: i === idx ? "#fff" : "rgba(255,255,255,0.35)", cursor: "pointer" }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── JournalColumn ─────────────────────────────────────────────────────────────
 
 function JournalColumn({
-  visit,
   allVisits,
   onEdit,
   onAdd,
+  collapsed,
+  onToggle,
+  onImageClick,
 }: {
-  visit: VisitData | null;
   allVisits: VisitData[];
-  onEdit: () => void;
+  onEdit: (visit: VisitData) => void;
   onAdd: () => void;
+  collapsed: boolean;
+  onToggle: () => void;
+  onImageClick: (images: string[], index: number) => void;
 }) {
   const paperBg = "#FAF3E0";
   const inkPaper = "#3A2E1C";
@@ -192,6 +264,8 @@ function JournalColumn({
     .filter((v) => !v.is_bucket_list && v.visited_date && v !== latestVisit)
     .sort((a, b) => new Date(b.visited_date!).getTime() - new Date(a.visited_date!).getTime());
 
+  const entryCount = allVisits.filter((v) => !v.is_bucket_list && v.visited_date).length;
+
   const formatDate = (iso: string) => {
     const d = new Date(iso);
     return {
@@ -200,6 +274,68 @@ function JournalColumn({
       full: d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
     };
   };
+
+  if (collapsed) {
+    return (
+      <div
+        style={{
+          width: 48,
+          flexShrink: 0,
+          borderLeft: "0.5px solid var(--hairline)",
+          background: paperBg,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          paddingTop: 14,
+          gap: 14,
+          transition: "width 0.2s ease",
+          position: "relative",
+        }}
+      >
+        <button
+          onClick={onToggle}
+          title="Open journal"
+          style={{
+            width: 32, height: 32, borderRadius: "50%",
+            background: "rgba(58,46,28,0.08)", border: "0.5px solid rgba(58,46,28,0.15)",
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            color: inkPaper, flexShrink: 0,
+          }}
+        >
+          <ChevronLeft size={16} />
+        </button>
+        {entryCount > 0 && (
+          <div
+            style={{
+              width: 26, height: 26, borderRadius: "50%",
+              background: "var(--primary)", color: "#FFFBF1",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 11, fontWeight: 700, flexShrink: 0,
+            }}
+          >
+            {entryCount}
+          </div>
+        )}
+        <div
+          style={{
+            writingMode: "vertical-rl",
+            textOrientation: "mixed",
+            transform: "rotate(180deg)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            letterSpacing: "1.6px",
+            color: "rgba(58,46,28,0.4)",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            marginTop: 4,
+            userSelect: "none",
+          }}
+        >
+          Journal
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -211,8 +347,32 @@ function JournalColumn({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        transition: "width 0.2s ease",
+        position: "relative",
       }}
     >
+      {/* Collapse toggle — centered on left border */}
+      <button
+        onClick={onToggle}
+        title="Collapse journal"
+        style={{
+          position: "absolute",
+          left: -16,
+          top: "50%",
+          transform: "translateY(-50%)",
+          width: 32, height: 32, borderRadius: "50%",
+          background: paperBg,
+          border: "0.5px solid var(--hairline)",
+          cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: inkPaper,
+          zIndex: 10,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
+        }}
+      >
+        <ChevronRight size={14} />
+      </button>
+
       {/* Journal header */}
       <div
         style={{
@@ -247,15 +407,9 @@ function JournalColumn({
               Your entries
             </div>
           </div>
-          {latestVisit ? (
-            <DesktopButton size="sm" primary onClick={onEdit}>
-              <PenLine size={13} strokeWidth={2} /> Edit
-            </DesktopButton>
-          ) : (
-            <DesktopButton size="sm" primary onClick={onAdd}>
-              <Plus size={13} strokeWidth={2.4} /> Log visit
-            </DesktopButton>
-          )}
+          <DesktopButton size="sm" primary onClick={onAdd}>
+            <Plus size={13} strokeWidth={2.4} /> Log visit
+          </DesktopButton>
         </div>
       </div>
 
@@ -286,12 +440,23 @@ function JournalColumn({
                     </div>
                     <div style={{ fontSize: 18 }}>{d.day}</div>
                   </div>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14, color: inkPaper }}>{d.full}</div>
                     <div style={{ fontSize: 12.5, color: "var(--ink-mute)", marginTop: 1 }}>
                       {latestVisit.visibility ?? "Private"}
                     </div>
                   </div>
+                  <button
+                    onClick={() => onEdit(latestVisit)}
+                    style={{
+                      background: "transparent", border: "0.5px solid rgba(58,46,28,0.18)",
+                      borderRadius: 8, padding: "5px 10px", cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: 5,
+                      fontSize: 11, fontWeight: 600, color: inkPaper, flexShrink: 0,
+                    }}
+                  >
+                    <PenLine size={11} strokeWidth={2} /> Edit
+                  </button>
                 </div>
               );
             })()}
@@ -343,7 +508,8 @@ function JournalColumn({
                       key={i}
                       src={url}
                       alt=""
-                      style={{ width: "100%", height: 88, objectFit: "cover", borderRadius: 6 }}
+                      onClick={() => onImageClick(latestVisit.photos!, i)}
+                      style={{ width: "100%", height: 88, objectFit: "cover", borderRadius: 6, cursor: "zoom-in" }}
                     />
                   ))}
                 </div>
@@ -379,24 +545,36 @@ function JournalColumn({
                           borderLeft: "2px solid var(--primary)",
                         }}
                       >
-                        <div
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: 9.5,
-                            letterSpacing: "1px",
-                            color: "var(--ink-mute)",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {d.full.toUpperCase()}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
+                          <div
+                            style={{
+                              fontFamily: "var(--font-mono)",
+                              fontSize: 9.5,
+                              letterSpacing: "1px",
+                              color: "var(--ink-mute)",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {d.full.toUpperCase()}
+                          </div>
+                          <button
+                            onClick={() => onEdit(v)}
+                            style={{
+                              background: "transparent", border: "none", padding: "2px 4px",
+                              cursor: "pointer", color: "var(--ink-mute)", flexShrink: 0,
+                              display: "flex", alignItems: "center",
+                            }}
+                          >
+                            <PenLine size={11} strokeWidth={2} />
+                          </button>
                         </div>
                         {v.notes && (
-                          <div style={{ fontSize: 12.5, color: inkPaper, marginTop: 3, lineHeight: 1.45 }}>
+                          <div style={{ fontSize: 12.5, color: inkPaper, lineHeight: 1.45 }}>
                             {v.notes}
                           </div>
                         )}
                         {v.title && !v.notes && (
-                          <div style={{ fontSize: 12.5, color: inkPaper, marginTop: 3 }}>{v.title}</div>
+                          <div style={{ fontSize: 12.5, color: inkPaper }}>{v.title}</div>
                         )}
                       </div>
                     );
@@ -447,10 +625,16 @@ export default function ParkDetailPage({
 
   const [park, setPark]       = useState<ParkData | null>(null);
   const [visits, setVisits]   = useState<VisitData[]>([]);
+  const [allVisitsGlobal, setAllVisitsGlobal] = useState<VisitData[]>([]);
+  const [allParks, setAllParks] = useState<ParkData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddDialog, setShowAddDialog]   = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingVisit, setEditingVisit]   = useState<VisitData | null>(null);
   const [nps, setNps] = useState<NpsData | null>(null);
+  const [journalOpen, setJournalOpen] = useState(true);
+  const [activitiesExpanded, setActivitiesExpanded] = useState(false);
+  const [topicsExpanded, setTopicsExpanded] = useState(false);
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/");
@@ -464,6 +648,10 @@ export default function ParkDetailPage({
   }, [park_code]);
 
   useEffect(() => {
+    fetch("/api/parks").then((r) => r.ok ? r.json() : []).then(setAllParks).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (!isSignedIn) return;
     Promise.all([
       fetch(`/api/parks/${park_code}`).then((r) => (r.ok ? r.json() : null)),
@@ -471,6 +659,7 @@ export default function ParkDetailPage({
     ])
       .then(([parkData, allVisits]) => {
         setPark(parkData);
+        setAllVisitsGlobal(allVisits as VisitData[]);
         const parkVisits = (allVisits as VisitData[]).filter(
           (v) => v.park_code === park_code
         );
@@ -590,7 +779,8 @@ export default function ParkDetailPage({
                 <img
                   src={nps?.images[0].url}
                   alt={nps?.images[0].altText || park.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  onClick={() => setLightbox({ images: nps.images.map((img) => img.url), index: 0 })}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "zoom-in" }}
                 />
               ) : (
                 <div style={{ width: "100%", height: "100%", background: gradient }} />
@@ -655,7 +845,8 @@ export default function ParkDetailPage({
                   key={i}
                   src={img.url}
                   alt={img.altText || ""}
-                  style={{ height: 120, width: "100%", objectFit: "cover", borderRadius: 10 }}
+                  onClick={() => setLightbox({ images: nps.images.map((im) => im.url), index: i + 1 })}
+                  style={{ height: 120, width: "100%", objectFit: "cover", borderRadius: 10, cursor: "zoom-in" }}
                 />
               ) : (
                 <div
@@ -692,7 +883,6 @@ export default function ParkDetailPage({
                   fontSize: 16,
                   color: "var(--ink-soft)",
                   lineHeight: 1.6,
-                  maxWidth: 620,
                 }}
               >
                 {park.description}
@@ -767,104 +957,192 @@ export default function ParkDetailPage({
                 <Map
                   center={[parseFloat(park.latitude), parseFloat(park.longitude)]}
                   zoom={10}
-                  parks={[{
-                    park_code: park.park_code,
-                    name: park.name,
-                    position: [parseFloat(park.latitude), parseFloat(park.longitude)],
-                    status,
-                  }]}
+                  parks={allParks
+                    .filter((p) => p.latitude && p.longitude)
+                    .map((p) => {
+                      const hasVisit = allVisitsGlobal.some((v) => v.park_code === p.park_code && !v.is_bucket_list && v.visited_date);
+                      const hasBucket = allVisitsGlobal.some((v) => v.park_code === p.park_code && v.is_bucket_list);
+                      return {
+                        park_code: p.park_code,
+                        name: p.name,
+                        position: [parseFloat(p.latitude!), parseFloat(p.longitude!)] as [number, number],
+                        status: hasVisit ? "visited" : hasBucket ? "bucketList" : "notVisited",
+                      };
+                    })
+                  }
                 />
               </div>
             </div>
           )}
 
           {/* Activities */}
-          {nps?.activities && nps.activities.length > 0 && (
-            <div style={{ padding: "0 32px 28px" }}>
-              <SectionLabel>
-                <Footprints size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
-                ACTIVITIES
-              </SectionLabel>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {nps.activities.map((a, i) => <InfoChip key={i}>{a}</InfoChip>)}
+          {nps?.activities && nps.activities.length > 0 && (() => {
+            const LIMIT = 6;
+            const shown = activitiesExpanded ? nps.activities : nps.activities.slice(0, LIMIT);
+            const hidden = nps.activities.length - LIMIT;
+            return (
+              <div style={{ padding: "0 32px 28px" }}>
+                <SectionLabel>
+                  <Footprints size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
+                  ACTIVITIES
+                </SectionLabel>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                  {shown.map((a, i) => <InfoChip key={i}>{a}</InfoChip>)}
+                  {!activitiesExpanded && hidden > 0 && (
+                    <button
+                      onClick={() => setActivitiesExpanded(true)}
+                      style={{ border: "none", background: "none", padding: "4px 6px", fontSize: 11.5, fontWeight: 600, color: "var(--primary)", cursor: "pointer" }}
+                    >
+                      +{hidden} more
+                    </button>
+                  )}
+                  {activitiesExpanded && nps.activities.length > LIMIT && (
+                    <button
+                      onClick={() => setActivitiesExpanded(false)}
+                      style={{ border: "none", background: "none", padding: "4px 6px", fontSize: 11.5, fontWeight: 600, color: "var(--ink-mute)", cursor: "pointer" }}
+                    >
+                      Show less
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Topics */}
-          {nps?.topics && nps.topics.length > 0 && (
-            <div style={{ padding: "0 32px 28px" }}>
-              <SectionLabel>
-                <Tag size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
-                TOPICS
-              </SectionLabel>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {nps.topics.map((t, i) => <InfoChip key={i} muted>{t}</InfoChip>)}
+          {nps?.topics && nps.topics.length > 0 && (() => {
+            const LIMIT = 6;
+            const shown = topicsExpanded ? nps.topics : nps.topics.slice(0, LIMIT);
+            const hidden = nps.topics.length - LIMIT;
+            return (
+              <div style={{ padding: "0 32px 28px" }}>
+                <SectionLabel>
+                  <Tag size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
+                  TOPICS
+                </SectionLabel>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                  {shown.map((t, i) => <InfoChip key={i} muted>{t}</InfoChip>)}
+                  {!topicsExpanded && hidden > 0 && (
+                    <button
+                      onClick={() => setTopicsExpanded(true)}
+                      style={{ border: "none", background: "none", padding: "4px 6px", fontSize: 11.5, fontWeight: 600, color: "var(--primary)", cursor: "pointer" }}
+                    >
+                      +{hidden} more
+                    </button>
+                  )}
+                  {topicsExpanded && nps.topics.length > LIMIT && (
+                    <button
+                      onClick={() => setTopicsExpanded(false)}
+                      style={{ border: "none", background: "none", padding: "4px 6px", fontSize: 11.5, fontWeight: 600, color: "var(--ink-mute)", cursor: "pointer" }}
+                    >
+                      Show less
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
-          {/* Operating hours */}
-          {nps?.operatingHours && nps.operatingHours.length > 0 && (
-            <div style={{ padding: "0 32px 28px" }}>
-              <SectionLabel>
-                <Clock size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
-                HOURS
-              </SectionLabel>
-              {nps.operatingHours.map((h, i) => {
-                const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-                const dayLabels: Record<string, string> = {
-                  monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
-                  friday: "Fri", saturday: "Sat", sunday: "Sun",
-                };
-                return (
+          {/* Operating hours + Contact side by side */}
+          {((nps?.operatingHours && nps.operatingHours.length > 0) || nps?.phone || nps?.email || nps?.url) && (
+            <div style={{ padding: "0 32px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
+              {nps?.operatingHours && nps.operatingHours.length > 0 && (
+                <div>
+                  <SectionLabel>
+                    <Clock size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
+                    HOURS
+                  </SectionLabel>
+                  {nps.operatingHours.map((h, i, hours) => {
+                    const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+                    const dayLabels: Record<string, string> = {
+                      monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
+                      friday: "Fri", saturday: "Sat", sunday: "Sun",
+                    };
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          background: "var(--surface)",
+                          border: "0.5px solid var(--hairline)",
+                          borderRadius: 12,
+                          padding: "14px 18px",
+                          marginBottom: i < hours.length - 1 ? 8 : 0,
+                        }}
+                      >
+                        {hours.length > 1 && (
+                          <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)", marginBottom: 10 }}>
+                            {h.name}
+                          </div>
+                        )}
+                        <div style={{ display: "grid", gridTemplateColumns: "48px 1fr", rowGap: 6, columnGap: 12 }}>
+                          {days.map((day) => (
+                            h.standardHours[day] != null && (
+                              <>
+                                <span
+                                  key={`${day}-label`}
+                                  style={{
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    color: "var(--ink-mute)",
+                                    letterSpacing: "0.6px",
+                                    paddingTop: 1,
+                                  }}
+                                >
+                                  {dayLabels[day]}
+                                </span>
+                                <span key={`${day}-val`} style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+                                  {h.standardHours[day]}
+                                </span>
+                              </>
+                            )
+                          ))}
+                        </div>
+                        {h.description && (
+                          <div style={{ fontSize: 12, color: "var(--ink-mute)", marginTop: 10, lineHeight: 1.5 }}>
+                            {h.description}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {(nps?.phone || nps?.email || nps?.url) && (
+                <div>
+                  <SectionLabel>CONTACT</SectionLabel>
                   <div
-                    key={i}
                     style={{
                       background: "var(--surface)",
                       border: "0.5px solid var(--hairline)",
                       borderRadius: 12,
                       padding: "14px 18px",
-                      marginBottom: i < nps.operatingHours.length - 1 ? 8 : 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
                     }}
                   >
-                    {nps.operatingHours.length > 1 && (
-                      <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)", marginBottom: 10 }}>
-                        {h.name}
-                      </div>
+                    {nps.phone && (
+                      <a href={`tel:${nps.phone}`} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--ink)" }}>
+                        <Phone size={14} strokeWidth={2} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
+                        <span style={{ fontSize: 13 }}>{nps.phone}</span>
+                      </a>
                     )}
-                    <div style={{ display: "grid", gridTemplateColumns: "48px 1fr", rowGap: 6, columnGap: 12 }}>
-                      {days.map((day) => (
-                        h.standardHours[day] != null && (
-                          <>
-                            <span
-                              key={`${day}-label`}
-                              style={{
-                                fontFamily: "var(--font-mono)",
-                                fontSize: 10,
-                                fontWeight: 700,
-                                color: "var(--ink-mute)",
-                                letterSpacing: "0.6px",
-                                paddingTop: 1,
-                              }}
-                            >
-                              {dayLabels[day]}
-                            </span>
-                            <span key={`${day}-val`} style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-                              {h.standardHours[day]}
-                            </span>
-                          </>
-                        )
-                      ))}
-                    </div>
-                    {h.description && (
-                      <div style={{ fontSize: 12, color: "var(--ink-mute)", marginTop: 10, lineHeight: 1.5 }}>
-                        {h.description}
-                      </div>
+                    {nps.email && (
+                      <a href={`mailto:${nps.email}`} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--ink)" }}>
+                        <Mail size={14} strokeWidth={2} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
+                        <span style={{ fontSize: 13 }}>{nps.email}</span>
+                      </a>
+                    )}
+                    {nps.url && (
+                      <a href={nps.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--primary)" }}>
+                        <ExternalLink size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>Official NPS page</span>
+                      </a>
                     )}
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
           )}
 
@@ -982,79 +1260,16 @@ export default function ParkDetailPage({
             </div>
           )}
 
-          {/* Contact */}
-          {(nps?.phone || nps?.email || nps?.url) && (
-            <div style={{ padding: "0 32px 40px" }}>
-              <SectionLabel>CONTACT</SectionLabel>
-              <div
-                style={{
-                  background: "var(--surface)",
-                  border: "0.5px solid var(--hairline)",
-                  borderRadius: 12,
-                  padding: "14px 18px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
-                {nps.phone && (
-                  <a
-                    href={`tel:${nps.phone}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      textDecoration: "none",
-                      color: "var(--ink)",
-                    }}
-                  >
-                    <Phone size={14} strokeWidth={2} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
-                    <span style={{ fontSize: 13 }}>{nps.phone}</span>
-                  </a>
-                )}
-                {nps.email && (
-                  <a
-                    href={`mailto:${nps.email}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      textDecoration: "none",
-                      color: "var(--ink)",
-                    }}
-                  >
-                    <Mail size={14} strokeWidth={2} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
-                    <span style={{ fontSize: 13 }}>{nps.email}</span>
-                  </a>
-                )}
-                {nps.url && (
-                  <a
-                    href={nps.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      textDecoration: "none",
-                      color: "var(--primary)",
-                    }}
-                  >
-                    <ExternalLink size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>Official NPS page</span>
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── Right column — Journal ───────────────────────────────── */}
         <JournalColumn
-          visit={latestVisit}
           allVisits={visits}
-          onEdit={() => setShowEditDialog(true)}
+          onEdit={(v) => setEditingVisit(v)}
           onAdd={() => setShowAddDialog(true)}
+          collapsed={!journalOpen}
+          onToggle={() => setJournalOpen((v) => !v)}
+          onImageClick={(images, index) => setLightbox({ images, index })}
         />
       </div>
 
@@ -1065,17 +1280,17 @@ export default function ParkDetailPage({
         parkName={park.name}
         onConfirm={handleConfirmVisit}
       />
-      {latestVisit && showEditDialog && (
+      {editingVisit && (
         <EditVisitDialog
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
+          open={!!editingVisit}
+          onOpenChange={(open) => { if (!open) setEditingVisit(null); }}
           parkName={park.name}
           existing={{
-            visitedDate: latestVisit.visited_date ?? new Date().toISOString(),
-            title: latestVisit.title,
-            notes: latestVisit.notes,
-            photos: latestVisit.photos,
-            visibility: latestVisit.visibility,
+            visitedDate: editingVisit.visited_date ?? new Date().toISOString(),
+            title: editingVisit.title,
+            notes: editingVisit.notes,
+            photos: editingVisit.photos,
+            visibility: editingVisit.visibility,
           }}
           onSave={async (date, journal) => {
             const res = await fetch("/api/visits", {
@@ -1094,7 +1309,7 @@ export default function ParkDetailPage({
             if (res.ok) {
               setVisits((prev) =>
                 prev.map((v) =>
-                  v === latestVisit
+                  v === editingVisit
                     ? {
                         ...v,
                         visited_date: date.toISOString(),
@@ -1107,15 +1322,21 @@ export default function ParkDetailPage({
                 )
               );
             }
-            setShowEditDialog(false);
+            setEditingVisit(null);
           }}
           onDelete={async () => {
             await fetch(`/api/visits?park_code=${park_code}`, { method: "DELETE" });
-            setVisits((prev) =>
-              prev.filter((v) => v !== latestVisit)
-            );
-            setShowEditDialog(false);
+            setVisits((prev) => prev.filter((v) => v !== editingVisit));
+            setEditingVisit(null);
           }}
+        />
+      )}
+
+      {lightbox && (
+        <LightboxModal
+          images={lightbox.images}
+          startIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
         />
       )}
     </DesktopShell>
