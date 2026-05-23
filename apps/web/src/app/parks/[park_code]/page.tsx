@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import {
   ChevronLeft, ChevronRight, PenLine, MapPin, Plus, ExternalLink, Phone, Mail, Clock, DollarSign, Navigation, Cloud, Tag, Footprints, X,
 } from "lucide-react";
@@ -13,8 +14,9 @@ import { DesktopButton } from "@/components/desktop/DesktopButton";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
 import EditVisitDialog from "@/components/EditVisitDialog";
 import type { NpsData } from "@/app/api/parks/[park_code]/nps/route";
+import type { WeatherForecast } from "@/app/api/parks/[park_code]/weather/route";
 
-const Map = dynamic(() => import("@/components/Map"), { ssr: false, loading: () => <div style={{ height: "100%", background: "var(--surface-alt)" }} /> });
+const ParkMap = dynamic(() => import("@/components/Map"), { ssr: false, loading: () => <div style={{ height: "100%", background: "var(--surface-alt)" }} /> });
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -53,33 +55,22 @@ function parkGradient(code: string): string {
   return `linear-gradient(160deg, ${a} 0%, ${b} 55%, ${c} 130%)`;
 }
 
-// ── StatusChip ────────────────────────────────────────────────────────────────
+// ── State name lookup ─────────────────────────────────────────────────────────
 
-function StatusChip({ status }: { status: "visited" | "bucketList" | "notVisited" }) {
-  const cfg = {
-    visited:    { label: "Visited",     bg: "rgba(47,122,74,0.18)",  color: "#2F7A4A" },
-    bucketList: { label: "Bucket list", bg: "rgba(216,154,58,0.18)", color: "#D89A3A" },
-    notVisited: { label: "Not visited", bg: "rgba(168,162,154,0.22)", color: "#7A746A" },
-  }[status];
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        background: cfg.bg,
-        padding: "4px 10px",
-        borderRadius: 100,
-        border: `0.5px solid ${cfg.color}40`,
-      }}
-    >
-      <div style={{ width: 6, height: 6, borderRadius: "50%", background: cfg.color, flexShrink: 0 }} />
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, color: cfg.color, letterSpacing: "0.6px" }}>
-        {cfg.label}
-      </span>
-    </div>
-  );
-}
+const STATE_NAMES: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+  DC: "Washington D.C.", AS: "American Samoa", GU: "Guam", MP: "Northern Mariana Islands",
+  PR: "Puerto Rico", VI: "U.S. Virgin Islands",
+};
 
 // ── SectionLabel ──────────────────────────────────────────────────────────────
 
@@ -125,7 +116,7 @@ function InfoChip({ children, muted }: { children: React.ReactNode; muted?: bool
 
 // ── StatTile ──────────────────────────────────────────────────────────────────
 
-function StatTile({ label, value, unit, border }: { label: string; value: string; unit?: string; border?: boolean }) {
+function StatTile({ label, value, unit, border, sm }: { label: string; value: string; unit?: string; border?: boolean; sm?: boolean }) {
   return (
     <div
       style={{
@@ -149,11 +140,11 @@ function StatTile({ label, value, unit, border }: { label: string; value: string
       <div
         style={{
           fontWeight: 900,
-          fontSize: 22,
+          fontSize: sm ? 13 : 22,
           color: "var(--ink)",
           marginTop: 4,
-          letterSpacing: -0.5,
-          lineHeight: 1,
+          letterSpacing: sm ? 0 : -0.5,
+          lineHeight: 1.2,
         }}
       >
         {value}
@@ -169,10 +160,17 @@ function StatTile({ label, value, unit, border }: { label: string; value: string
 
 // ── LightboxModal ─────────────────────────────────────────────────────────────
 
-function LightboxModal({ images, startIndex, onClose }: { images: string[]; startIndex: number; onClose: () => void }) {
+interface LightboxImage {
+  url: string;
+  caption?: string;
+  credit?: string;
+}
+
+function LightboxModal({ images, startIndex, onClose }: { images: LightboxImage[]; startIndex: number; onClose: () => void }) {
   const [idx, setIdx] = useState(startIndex);
   const prev = () => setIdx((i) => (i - 1 + images.length) % images.length);
   const next = () => setIdx((i) => (i + 1) % images.length);
+  const current = images[idx];
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -189,8 +187,8 @@ function LightboxModal({ images, startIndex, onClose }: { images: string[]; star
       onClick={onClose}
       style={{
         position: "fixed", inset: 0, zIndex: 1000,
-        background: "rgba(0,0,0,0.88)",
-        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "rgba(0,0,0,0.92)",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       }}
     >
       <button
@@ -218,16 +216,41 @@ function LightboxModal({ images, startIndex, onClose }: { images: string[]; star
       )}
 
       <img
-        src={images[idx]}
-        alt=""
+        src={current.url}
+        alt={current.caption ?? ""}
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: "90vw", maxHeight: "88vh", objectFit: "contain", borderRadius: 10, userSelect: "none" }}
+        style={{ maxWidth: "90vw", maxHeight: "78vh", objectFit: "contain", borderRadius: 10, userSelect: "none" }}
       />
 
+      {/* Caption + credit */}
+      {(current.caption || current.credit) && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            marginTop: 16,
+            textAlign: "center",
+            maxWidth: 640,
+            padding: "0 24px",
+          }}
+        >
+          {current.caption && (
+            <div style={{ fontSize: 13.5, fontWeight: 500, color: "rgba(255,255,255,0.90)", lineHeight: 1.5, marginBottom: current.credit ? 4 : 0 }}>
+              {current.caption}
+            </div>
+          )}
+          {current.credit && (
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontFamily: "var(--font-mono)", letterSpacing: "0.4px" }}>
+              {current.credit}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Dot indicators */}
       {images.length > 1 && (
-        <div style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6 }}>
+        <div style={{ marginTop: 20, display: "flex", gap: 6 }}>
           {images.map((_, i) => (
-            <div key={i} onClick={(e) => { e.stopPropagation(); setIdx(i); }} style={{ width: 6, height: 6, borderRadius: "50%", background: i === idx ? "#fff" : "rgba(255,255,255,0.35)", cursor: "pointer" }} />
+            <div key={i} onClick={(e) => { e.stopPropagation(); setIdx(i); }} style={{ width: 6, height: 6, borderRadius: "50%", background: i === idx ? "#fff" : "rgba(255,255,255,0.30)", cursor: "pointer" }} />
           ))}
         </div>
       )}
@@ -250,7 +273,7 @@ function JournalColumn({
   onAdd: () => void;
   collapsed: boolean;
   onToggle: () => void;
-  onImageClick: (images: string[], index: number) => void;
+  onImageClick: (images: LightboxImage[], index: number) => void;
 }) {
   const paperBg = "#FAF3E0";
   const inkPaper = "#3A2E1C";
@@ -346,7 +369,7 @@ function JournalColumn({
         background: paperBg,
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        overflow: "visible",
         transition: "width 0.2s ease",
         position: "relative",
       }}
@@ -393,7 +416,7 @@ function JournalColumn({
                 fontWeight: 600,
               }}
             >
-              JOURNAL · FIELD NOTES
+              JOURNAL
             </div>
             <div
               style={{
@@ -504,12 +527,14 @@ function JournalColumn({
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
                   {latestVisit.photos.slice(0, 9).map((url, i) => (
-                    <img
+                    <Image
                       key={i}
                       src={url}
                       alt=""
-                      onClick={() => onImageClick(latestVisit.photos!, i)}
-                      style={{ width: "100%", height: 88, objectFit: "cover", borderRadius: 6, cursor: "zoom-in" }}
+                      width={400}
+                      height={88}
+                      onClick={() => onImageClick(latestVisit.photos!.map((u) => ({ url: u })), i)}
+                      style={{ width: "100%", height: 88, objectFit: "cover", borderRadius: 6, cursor: "pointer" }}
                     />
                   ))}
                 </div>
@@ -631,10 +656,11 @@ export default function ParkDetailPage({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingVisit, setEditingVisit]   = useState<VisitData | null>(null);
   const [nps, setNps] = useState<NpsData | null>(null);
+  const [forecast, setForecast] = useState<WeatherForecast | null>(null);
   const [journalOpen, setJournalOpen] = useState(true);
   const [activitiesExpanded, setActivitiesExpanded] = useState(false);
   const [topicsExpanded, setTopicsExpanded] = useState(false);
-  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
+  const [lightbox, setLightbox] = useState<{ images: LightboxImage[]; index: number } | null>(null);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/");
@@ -644,6 +670,10 @@ export default function ParkDetailPage({
     fetch(`/api/parks/${park_code}/nps`)
       .then((r) => r.json())
       .then((data) => setNps(data))
+      .catch(() => {});
+    fetch(`/api/parks/${park_code}/weather`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => data && setForecast(data))
       .catch(() => {});
   }, [park_code]);
 
@@ -721,6 +751,7 @@ export default function ParkDetailPage({
   }
 
   const stateLabel = park.states.split(",")[0]?.trim() ?? park.states;
+  const stateName = STATE_NAMES[stateLabel] ?? stateLabel;
   const gradient = parkGradient(park.park_code);
 
   return (
@@ -779,7 +810,7 @@ export default function ParkDetailPage({
                 <img
                   src={nps?.images[0].url}
                   alt={nps?.images[0].altText || park.name}
-                  onClick={() => setLightbox({ images: nps.images.map((img) => img.url), index: 0 })}
+                  onClick={() => setLightbox({ images: nps.images.map((img) => ({ url: img.url, caption: img.title || undefined, credit: img.credit || undefined })), index: 0 })}
                   style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "zoom-in" }}
                 />
               ) : (
@@ -789,7 +820,8 @@ export default function ParkDetailPage({
                 style={{
                   position: "absolute",
                   inset: 0,
-                  background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 50%)",
+                  background: "linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.42) 35%, rgba(0,0,0,0) 65%)",
+                  pointerEvents: "none",
                 }}
               />
               <div
@@ -799,20 +831,21 @@ export default function ParkDetailPage({
                   left: 22,
                   right: 22,
                   color: "#FFFBF1",
+                  pointerEvents: "none",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <StatusChip status={status} />
+                <div style={{ marginBottom: 6 }}>
                   <div
                     style={{
                       fontFamily: "var(--font-mono)",
                       fontSize: 10,
-                      color: "rgba(255,251,241,0.85)",
+                      color: "rgba(255,251,241,0.92)",
                       letterSpacing: "1.4px",
                       textTransform: "uppercase",
+                      textShadow: "0 1px 3px rgba(0,0,0,0.6)",
                     }}
                   >
-                    {stateLabel}
+                    {stateName}
                   </div>
                 </div>
                 <div
@@ -845,7 +878,7 @@ export default function ParkDetailPage({
                   key={i}
                   src={img.url}
                   alt={img.altText || ""}
-                  onClick={() => setLightbox({ images: nps.images.map((im) => im.url), index: i + 1 })}
+                  onClick={() => setLightbox({ images: nps.images.map((im) => ({ url: im.url, caption: im.title || undefined, credit: im.credit || undefined })), index: i + 1 })}
                   style={{ height: 120, width: "100%", objectFit: "cover", borderRadius: 10, cursor: "zoom-in" }}
                 />
               ) : (
@@ -903,7 +936,7 @@ export default function ParkDetailPage({
               }}
             >
               <StatTile label="State" value={stateLabel} />
-              <StatTile label="Status" value={status === "visited" ? "✓" : status === "bucketList" ? "★" : "—"} border />
+              <StatTile label="Status" value={status === "visited" ? "Visited" : status === "bucketList" ? "Bucket list" : "—"} border />
               <StatTile
                 label="Visits"
                 value={visits.filter((v) => !v.is_bucket_list && v.visited_date).length.toString()}
@@ -954,7 +987,7 @@ export default function ParkDetailPage({
                   border: "0.5px solid var(--hairline)",
                 }}
               >
-                <Map
+                <ParkMap
                   center={[parseFloat(park.latitude), parseFloat(park.longitude)]}
                   zoom={10}
                   parks={allParks
@@ -991,7 +1024,7 @@ export default function ParkDetailPage({
                   {!activitiesExpanded && hidden > 0 && (
                     <button
                       onClick={() => setActivitiesExpanded(true)}
-                      style={{ border: "none", background: "none", padding: "4px 6px", fontSize: 11.5, fontWeight: 600, color: "var(--primary)", cursor: "pointer" }}
+                      style={{ display: "inline-flex", alignItems: "center", padding: "4px 10px", borderRadius: 100, background: "var(--surface)", border: "0.5px solid var(--hairline)", fontSize: 11.5, fontWeight: 600, color: "var(--primary)", cursor: "pointer" }}
                     >
                       +{hidden} more
                     </button>
@@ -999,7 +1032,7 @@ export default function ParkDetailPage({
                   {activitiesExpanded && nps.activities.length > LIMIT && (
                     <button
                       onClick={() => setActivitiesExpanded(false)}
-                      style={{ border: "none", background: "none", padding: "4px 6px", fontSize: 11.5, fontWeight: 600, color: "var(--ink-mute)", cursor: "pointer" }}
+                      style={{ display: "inline-flex", alignItems: "center", padding: "4px 10px", borderRadius: 100, background: "var(--surface)", border: "0.5px solid var(--hairline)", fontSize: 11.5, fontWeight: 500, color: "var(--ink-mute)", cursor: "pointer" }}
                     >
                       Show less
                     </button>
@@ -1025,7 +1058,7 @@ export default function ParkDetailPage({
                   {!topicsExpanded && hidden > 0 && (
                     <button
                       onClick={() => setTopicsExpanded(true)}
-                      style={{ border: "none", background: "none", padding: "4px 6px", fontSize: 11.5, fontWeight: 600, color: "var(--primary)", cursor: "pointer" }}
+                      style={{ display: "inline-flex", alignItems: "center", padding: "4px 10px", borderRadius: 100, background: "var(--surface-alt)", border: "0.5px solid var(--hairline)", fontSize: 11.5, fontWeight: 600, color: "var(--primary)", cursor: "pointer" }}
                     >
                       +{hidden} more
                     </button>
@@ -1033,7 +1066,7 @@ export default function ParkDetailPage({
                   {topicsExpanded && nps.topics.length > LIMIT && (
                     <button
                       onClick={() => setTopicsExpanded(false)}
-                      style={{ border: "none", background: "none", padding: "4px 6px", fontSize: 11.5, fontWeight: 600, color: "var(--ink-mute)", cursor: "pointer" }}
+                      style={{ display: "inline-flex", alignItems: "center", padding: "4px 10px", borderRadius: 100, background: "var(--surface-alt)", border: "0.5px solid var(--hairline)", fontSize: 11.5, fontWeight: 500, color: "var(--ink-mute)", cursor: "pointer" }}
                     >
                       Show less
                     </button>
@@ -1044,8 +1077,8 @@ export default function ParkDetailPage({
           })()}
 
           {/* Operating hours + Contact side by side */}
-          {((nps?.operatingHours && nps.operatingHours.length > 0) || nps?.phone || nps?.email || nps?.url) && (
-            <div style={{ padding: "0 32px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
+          {(nps?.operatingHours && nps.operatingHours.length > 0) && (
+            <div style={{ padding: "0 32px 28px" }}>
               {nps?.operatingHours && nps.operatingHours.length > 0 && (
                 <div>
                   <SectionLabel>
@@ -1108,43 +1141,9 @@ export default function ParkDetailPage({
                   })}
                 </div>
               )}
-              {(nps?.phone || nps?.email || nps?.url) && (
-                <div>
-                  <SectionLabel>CONTACT</SectionLabel>
-                  <div
-                    style={{
-                      background: "var(--surface)",
-                      border: "0.5px solid var(--hairline)",
-                      borderRadius: 12,
-                      padding: "14px 18px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                    }}
-                  >
-                    {nps.phone && (
-                      <a href={`tel:${nps.phone}`} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--ink)" }}>
-                        <Phone size={14} strokeWidth={2} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 13 }}>{nps.phone}</span>
-                      </a>
-                    )}
-                    {nps.email && (
-                      <a href={`mailto:${nps.email}`} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--ink)" }}>
-                        <Mail size={14} strokeWidth={2} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 13 }}>{nps.email}</span>
-                      </a>
-                    )}
-                    {nps.url && (
-                      <a href={nps.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--primary)" }}>
-                        <ExternalLink size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>Official NPS page</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           )}
+
 
           {/* Entrance fees */}
           {nps?.entranceFees && nps.entranceFees.length > 0 && (
@@ -1238,24 +1237,123 @@ export default function ParkDetailPage({
           )}
 
           {/* Weather */}
-          {nps?.weatherInfo && (
+          {(forecast || nps?.weatherInfo) && (
             <div style={{ padding: "0 32px 28px" }}>
               <SectionLabel>
                 <Cloud size={11} strokeWidth={2} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
                 WEATHER
               </SectionLabel>
+
+              {/* NWS forecast */}
+              {forecast && forecast.periods.length > 0 && (() => {
+                const daytime = forecast.periods.filter((p) => p.isDaytime);
+                type Period = WeatherForecast["periods"][number];
+                const nightEntries: [string, Period][] = forecast.periods
+                  .filter((p) => !p.isDaytime)
+                  .map((p) => [p.name.replace(" Night", "").replace(" night", ""), p]);
+                const nightMap = new Map<string, Period>(nightEntries);
+                return (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: `repeat(${Math.min(daytime.length, 7)}, 1fr)`,
+                      gap: 6,
+                      marginBottom: nps?.weatherInfo ? 12 : 0,
+                    }}
+                  >
+                    {daytime.slice(0, 7).map((period, i) => {
+                      const night = nightMap.get(period.name);
+                      const shortDay = period.name === "Today" ? "Today" : period.name.slice(0, 3);
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            background: "var(--surface)",
+                            border: "0.5px solid var(--hairline)",
+                            borderRadius: 10,
+                            padding: "10px 8px",
+                            textAlign: "center",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, fontWeight: 700, color: "var(--ink-mute)", letterSpacing: "0.8px", textTransform: "uppercase" }}>
+                            {shortDay}
+                          </div>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={period.icon} alt={period.shortForecast} style={{ width: 36, height: 36 }} />
+                          <div style={{ fontWeight: 800, fontSize: 15, color: "var(--ink)", lineHeight: 1 }}>
+                            {period.temperature}°{period.temperatureUnit}
+                          </div>
+                          {night && (
+                            <div style={{ fontSize: 11, color: "var(--ink-mute)", fontWeight: 500 }}>
+                              {night.temperature}°
+                            </div>
+                          )}
+                          <div style={{ fontSize: 10, color: "var(--ink-soft)", lineHeight: 1.3, marginTop: 2 }}>
+                            {period.shortForecast}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* NPS general weather description */}
+              {nps?.weatherInfo && (
+                <div
+                  style={{
+                    background: "var(--surface)",
+                    border: "0.5px solid var(--hairline)",
+                    borderRadius: 12,
+                    padding: "14px 18px",
+                    fontSize: 13,
+                    color: "var(--ink-soft)",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {nps.weatherInfo}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contact */}
+          {(nps?.phone || nps?.email || nps?.url) && (
+            <div style={{ padding: "0 32px 40px" }}>
+              <SectionLabel>CONTACT</SectionLabel>
               <div
                 style={{
                   background: "var(--surface)",
                   border: "0.5px solid var(--hairline)",
                   borderRadius: 12,
                   padding: "14px 18px",
-                  fontSize: 13,
-                  color: "var(--ink-soft)",
-                  lineHeight: 1.6,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
                 }}
               >
-                {nps.weatherInfo}
+                {nps.phone && (
+                  <a href={`tel:${nps.phone}`} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--ink)" }}>
+                    <Phone size={14} strokeWidth={2} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
+                    <span style={{ fontSize: 13 }}>{nps.phone}</span>
+                  </a>
+                )}
+                {nps.email && (
+                  <a href={`mailto:${nps.email}`} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--ink)" }}>
+                    <Mail size={14} strokeWidth={2} style={{ color: "var(--ink-mute)", flexShrink: 0 }} />
+                    <span style={{ fontSize: 13 }}>{nps.email}</span>
+                  </a>
+                )}
+                {nps.url && (
+                  <a href={nps.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--primary)" }}>
+                    <ExternalLink size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Official NPS page</span>
+                  </a>
+                )}
               </div>
             </div>
           )}

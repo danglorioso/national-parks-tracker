@@ -33,6 +33,7 @@ const NAV = [
       { id: "dashboard", href: "/dashboard", icon: Home,    label: "Home" },
       { id: "feed",      href: "/feed",      icon: Sparkles, label: "Feed" },
       { id: "map",       href: "/map",       icon: Map,     label: "Map" },
+      { id: "parks",     href: "/parks",     icon: Globe,   label: "Parks" },
       { id: "passport",  href: "/passport",  icon: User,    label: "Passport" },
       { id: "badges",    href: "/badges",    icon: Award,   label: "Badges" },
       { id: "planner",   href: "/planner",   icon: Compass, label: "Trip Planner" },
