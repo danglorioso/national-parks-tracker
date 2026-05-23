@@ -1206,17 +1206,18 @@ function FinalCTASection({ onAbout }: { onAbout: () => void }) {
           Scroll up to sign in or create an account.
         </div>
 
+        {/* Mini link row */}
         <div
           style={{
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            gap: 22,
+            gap: 18,
             marginTop: 50,
             fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            letterSpacing: "1.2px",
-            color: "rgba(255,251,241,0.55)",
+            fontSize: 9.5,
+            letterSpacing: "0.8px",
+            color: "rgba(255,251,241,0.45)",
             fontWeight: 600,
           }}
         >
@@ -1225,32 +1226,95 @@ function FinalCTASection({ onAbout }: { onAbout: () => void }) {
             style={{
               background: "transparent",
               border: 0,
-              color: "rgba(255,251,241,0.55)",
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              letterSpacing: "1.2px",
-              fontWeight: 600,
+              color: "inherit",
+              fontFamily: "inherit",
+              fontSize: "inherit",
+              letterSpacing: "inherit",
+              fontWeight: "inherit",
               cursor: "pointer",
               padding: 0,
+              transition: "color 120ms",
             }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,251,241,0.85)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = ""; }}
           >
             ABOUT
           </button>
           {["PRIVACY", "TERMS", "CONTACT", "CHANGELOG"].map((l) => (
-            <span key={l} style={{ cursor: "pointer" }}>{l}</span>
+            <span
+              key={l}
+              style={{ cursor: "pointer", transition: "color 120ms" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLSpanElement).style.color = "rgba(255,251,241,0.85)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLSpanElement).style.color = ""; }}
+            >
+              {l}
+            </span>
           ))}
         </div>
+
+        {/* Credit block */}
         <div
           style={{
-            marginTop: 18,
-            fontFamily: "var(--font-mono)",
-            fontSize: 9.5,
-            letterSpacing: "1px",
-            color: "rgba(255,251,241,0.35)",
-            fontWeight: 600,
+            marginTop: 32,
+            paddingTop: 24,
+            borderTop: "0.5px solid rgba(255,251,241,0.12)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 0,
           }}
         >
-          © PARKQUEST · MADE FOR EVERY PARK
+          {/* Mountain glyph */}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="rgba(255,251,241,0.5)"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ marginBottom: 8 }}
+          >
+            <path d="M3 20L9 9l3 5 3-7 6 13H3z" />
+            <circle cx="17" cy="6" r="1.5" fill="rgba(255,251,241,0.5)" stroke="none" />
+          </svg>
+
+          {/* Signature line */}
+          <div style={{ fontSize: 13, color: "rgba(255,251,241,0.55)", fontWeight: 400 }}>
+            Designed &amp; built by{" "}
+            <a
+              href="https://danglorioso.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "#FFFBF1",
+                fontWeight: 700,
+                textDecoration: "none",
+                borderBottom: "1px dotted rgba(255,251,241,0.45)",
+                paddingBottom: 1,
+                transition: "text-shadow 200ms",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textShadow = "0 0 12px rgba(255,251,241,0.3)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textShadow = "none"; }}
+            >
+              Dan Glorioso
+            </a>
+          </div>
+
+          {/* Copyright */}
+          <div
+            style={{
+              marginTop: 10,
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              letterSpacing: "1.4px",
+              color: "rgba(255,251,241,0.32)",
+              fontWeight: 500,
+            }}
+          >
+            © PARKQUEST {new Date().getFullYear()} · ALL RIGHTS RESERVED
+          </div>
         </div>
       </div>
     </div>

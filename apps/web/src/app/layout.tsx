@@ -3,7 +3,6 @@ import { Archivo, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { ClerkProvider } from "@clerk/nextjs";
-import Footer from "../components/Footer";
 import OnboardingGuard from "../components/OnboardingGuard";
 import { ThemeProvider } from "../components/ThemeProvider";
 import 'leaflet/dist/leaflet.css';
@@ -46,8 +45,6 @@ export default function RootLayout({
               {children}
             </div>
 
-            {/* Footer */}
-            <Footer />
           </ThemeProvider>
 
           {/* Vercel Analytics */}
