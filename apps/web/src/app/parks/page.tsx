@@ -68,7 +68,7 @@ function parkStatus(code: string, visits: Visit[]): "visited" | "bucketList" | "
 const STATUS_LABEL: Record<string, string> = {
   visited: "Visited",
   bucketList: "Bucket list",
-  notVisited: "Not yet",
+  notVisited: "Not visited",
 };
 
 
