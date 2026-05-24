@@ -133,6 +133,7 @@ export default function Home() {
         setSpotOpen((s) => !s);
       } else if (e.key === 'Escape') {
         setSpotOpen(false);
+        setSelectedParkCode(null);
       }
     };
     window.addEventListener('keydown', onKey);
