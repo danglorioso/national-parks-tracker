@@ -76,7 +76,7 @@ function AccountMenu({ onEditAccount }: { onEditAccount: () => void }) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
-  const { dark, setDark, palette, setPalette } = useTheme();
+  const { palette, setPalette } = useTheme();
   const [open, setOpen] = useState(false);
   const [showAppearance, setShowAppearance] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -111,7 +111,7 @@ function AccountMenu({ onEditAccount }: { onEditAccount: () => void }) {
   const menuItems = [
     { icon: UserCircle, label: "View profile", sub: "Your passport", onClick: () => { setOpen(false); router.push("/passport"); } },
     { icon: Pencil,     label: "Edit account",  onClick: () => { setOpen(false); onEditAccount(); } },
-    { icon: Sun,        label: "Appearance",    sub: dark ? "Dark" : "Light", onClick: () => setShowAppearance(s => !s) },
+    { icon: Sun,        label: "Appearance",    onClick: () => setShowAppearance(s => !s) },
     { divider: true },
     { icon: UserPlus,   label: "Switch account", onClick: () => setOpen(false) },
     { icon: LogOut,     label: "Sign out", danger: true, onClick: () => { setOpen(false); signOut(() => router.push("/")); } },
@@ -221,24 +221,6 @@ function AccountMenu({ onEditAccount }: { onEditAccount: () => void }) {
           {/* Inline Appearance panel */}
           {showAppearance && (
             <div style={{ margin: "4px 5px 2px", padding: "10px 8px", background: "var(--surface-alt)", borderRadius: 8 }}>
-              {/* Dark mode toggle */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontWeight: 600, fontSize: 12, color: "var(--ink)" }}>Dark mode</span>
-                <button
-                  onClick={() => setDark(!dark)}
-                  style={{
-                    width: 36, height: 20, borderRadius: 100,
-                    background: dark ? "var(--primary)" : "var(--hairline)",
-                    border: "none", cursor: "pointer", position: "relative", transition: "background 200ms",
-                  }}
-                >
-                  <div style={{
-                    position: "absolute", top: 2, left: dark ? 18 : 2,
-                    width: 16, height: 16, borderRadius: "50%",
-                    background: "#FFFBF1", boxShadow: "0 1px 4px rgba(0,0,0,0.25)", transition: "left 200ms",
-                  }} />
-                </button>
-              </div>
               {/* Palette */}
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "1.4px", color: "var(--ink-mute)", fontWeight: 600, marginBottom: 6 }}>PALETTE</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>

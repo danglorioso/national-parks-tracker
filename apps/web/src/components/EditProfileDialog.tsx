@@ -75,19 +75,15 @@ export default function EditProfileDialog({ open, onOpenChange, onSaved, overlay
     setError("");
     setSaving(true);
     try {
-      // Upload avatar if changed
+      // Clerk-side updates — non-fatal if Clerk rejects (e.g. username feature disabled)
       if (avatarFile) {
-        await user.setProfileImage({ file: avatarFile });
+        try { await user.setProfileImage({ file: avatarFile }); } catch { /* ignore */ }
       }
+      try {
+        await user.update({ firstName: firstName.trim(), lastName: lastName.trim() });
+      } catch { /* ignore */ }
 
-      // Update Clerk name
-      await user.update({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        username: username.trim().toLowerCase(),
-      });
-
-      // Update our DB (bio, display_name, username)
+      // DB save — this is the authoritative source; errors here are shown to the user
       const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -107,8 +103,7 @@ export default function EditProfileDialog({ open, onOpenChange, onSaved, overlay
       onSaved?.();
       onOpenChange(false);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Something went wrong";
-      setError(msg);
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSaving(false);
     }

@@ -296,27 +296,6 @@ export default function USAMap({
         </g>
       </svg>
 
-      {/* Scale indicator */}
-      <div
-        style={{
-          position: "absolute",
-          left: 16,
-          bottom: 16,
-          fontFamily: "var(--font-mono)",
-          fontSize: 9.5,
-          letterSpacing: "1px",
-          color: "#7A7460",
-          fontWeight: 600,
-          background: "rgba(255,251,241,0.72)",
-          backdropFilter: "blur(8px)",
-          borderRadius: 100,
-          padding: "4px 10px",
-          border: "0.5px solid #C4BB9E",
-        }}
-      >
-        ALBERS USA · {k.toFixed(1)}×
-      </div>
-
       {/* Zoom controls */}
       <div style={{ position: "absolute", right: 16, bottom: 16, display: "flex", flexDirection: "column", gap: 4 }}>
         {([{ label: "+", delta: 1.4 }, { label: "−", delta: 1 / 1.4 }, { label: "⊙", delta: 0 }] as const).map(({ label, delta }) => (
