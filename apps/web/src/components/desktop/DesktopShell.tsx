@@ -7,18 +7,32 @@ import Link from "next/link";
 import {
   Home, Sparkles, Map, User, Award, Compass,
   Check, Bookmark, PenLine, Users, Globe, TreePine,
-  Plus, ChevronDown, Mountain, LogOut, UserCircle, Pencil, Sun, UserPlus,
+  Plus, ChevronDown, LogOut, UserCircle, Pencil, Sun, UserPlus,
 } from "lucide-react";
 import { useTheme, type Palette } from "@/components/ThemeProvider";
+import EditProfileDialog from "@/components/EditProfileDialog";
 
 // ── Wordmark ─────────────────────────────────────────────────────────────────
 
 function Wordmark() {
   return (
-    <div className="flex items-center gap-2">
-      <Mountain className="w-5 h-5 shrink-0" strokeWidth={1.8} style={{ color: "var(--primary)" }} />
-      <span className="text-base leading-none" style={{ color: "var(--primary)" }}>
-        Park<strong className="font-extrabold">Quest</strong>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--primary)" }}>
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ marginTop: -2, flexShrink: 0 }}
+      >
+        <path d="M3 20L9 9l3 5 3-7 6 13H3z" />
+        <circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none" />
+      </svg>
+      <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: -0.4, lineHeight: 1, color: "var(--primary)" }}>
+        Park<span style={{ fontWeight: 500 }}>Quest</span>
       </span>
     </div>
   );
@@ -65,6 +79,7 @@ function AccountMenu() {
   const { dark, setDark, palette, setPalette } = useTheme();
   const [open, setOpen] = useState(false);
   const [showAppearance, setShowAppearance] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,7 +111,7 @@ function AccountMenu() {
 
   const menuItems = [
     { icon: UserCircle, label: "View profile", sub: "Your passport", onClick: () => { setOpen(false); router.push("/passport"); } },
-    { icon: Pencil,     label: "Edit account",  onClick: () => setOpen(false) },
+    { icon: Pencil,     label: "Edit account",  onClick: () => { setOpen(false); setEditOpen(true); } },
     { icon: Sun,        label: "Appearance",    sub: dark ? "Dark" : "Light", onClick: () => setShowAppearance(s => !s) },
     { divider: true },
     { icon: UserPlus,   label: "Switch account", onClick: () => setOpen(false) },
@@ -105,6 +120,11 @@ function AccountMenu() {
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
+      <EditProfileDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => { void user?.reload(); }}
+      />
       {/* Resting pill */}
       <button
         onClick={() => setOpen(o => !o)}
