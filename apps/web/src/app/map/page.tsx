@@ -3,13 +3,18 @@
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { DesktopShell } from "@/components/desktop/DesktopShell";
 import { type FilterStatus } from "@/components/desktop/MapLeftPanel";
 import { MapRightPanel } from "@/components/desktop/MapRightPanel";
 import { MapSpotlight } from "@/components/desktop/MapSpotlight";
-import USAMap from "@/components/USAMap";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
 import EditVisitDialog from "@/components/EditVisitDialog";
+
+const USAMap = dynamic(() => import("@/components/USAMapGL"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full" style={{ background: "#CECDBC" }} />,
+});
 
 interface ParkFromDB {
   park_code: string;
@@ -383,23 +388,6 @@ export default function Home() {
               onEditVisit={() => setPendingEdit(selectedPark)}
             />
           )}
-
-          {/* Bottom-left attribution */}
-          <div
-            style={{
-              position: "absolute",
-              left: 16,
-              bottom: 16,
-              zIndex: 15,
-              fontFamily: "var(--font-mono)",
-              fontSize: 9,
-              letterSpacing: "1px",
-              color: "var(--ink-mute)",
-              fontWeight: 600,
-            }}
-          >
-            {filteredParks.length} OF {parks.length} VISIBLE
-          </div>
         </div>
 
         <VisitDateDialog
