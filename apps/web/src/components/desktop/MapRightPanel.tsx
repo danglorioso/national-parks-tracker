@@ -174,7 +174,7 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
     <>
       <div
         style={{
-          position: "absolute", top: 64, right: 16, bottom: 80, width: 360, zIndex: 20,
+          position: "absolute", top: 16, right: 16, bottom: 16, width: 360, zIndex: 20,
           background: "rgba(255,251,241,0.94)",
           backdropFilter: "blur(28px) saturate(160%)",
           WebkitBackdropFilter: "blur(28px) saturate(160%)",
