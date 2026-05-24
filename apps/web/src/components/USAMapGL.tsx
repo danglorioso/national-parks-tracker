@@ -283,7 +283,6 @@ export default function USAMapGL({
       zoom: 3.6,
       minZoom: 2.5,
       maxZoom: 14,
-      maxBounds: [[-180, 14], [-60, 74]],
       attributionControl: false,
     });
 
