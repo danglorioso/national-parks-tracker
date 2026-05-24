@@ -7,7 +7,7 @@ import { DesktopShell } from "@/components/desktop/DesktopShell";
 import { type FilterStatus } from "@/components/desktop/MapLeftPanel";
 import { MapRightPanel } from "@/components/desktop/MapRightPanel";
 import { MapSpotlight } from "@/components/desktop/MapSpotlight";
-import Map from "@/components/Map";
+import USAMap from "@/components/USAMap";
 import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
 import EditVisitDialog from "@/components/EditVisitDialog";
 
@@ -254,14 +254,13 @@ export default function Home() {
         {/* Full-bleed map area with absolute floating panels */}
         <div className="relative h-full w-full" style={{ background: "#E8E2D0" }}>
 
-          {/* Leaflet map */}
-          <Map
-            center={[39.8283, -98.5795]}
-            zoom={4}
+          {/* SVG map */}
+          <USAMap
             className="h-full w-full"
             parks={filteredParks}
             selectedParkCode={selectedParkCode}
             onSelectPark={setSelectedParkCode}
+            onDeselect={() => setSelectedParkCode(null)}
           />
 
           {/* Top-left — Filter chip cluster */}
