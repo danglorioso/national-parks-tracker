@@ -262,58 +262,21 @@ function AuthForm({ mode, onSignUpComplete }: { mode: "signin" | "signup"; onSig
   const router = useRouter();
   const { signIn, setActive: setSIActive, isLoaded: siLoaded } = useSignIn();
   const { signUp, setActive: setSUActive, isLoaded: suLoaded } = useSignUp();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
+
+  // Sign-in state
+  const [siEmail, setSiEmail] = useState("");
+  const [siPassword, setSiPassword] = useState("");
+  const [siShowPw, setSiShowPw] = useState(false);
+
+  // Sign-up multi-step state
+  const [suStep, setSuStep] = useState<"email" | "password" | "verify">("email");
+  const [suEmail, setSuEmail] = useState("");
+  const [suPassword, setSuPassword] = useState("");
+  const [suShowPw, setSuShowPw] = useState(false);
+  const [suCode, setSuCode] = useState("");
+
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const isLoaded = mode === "signin" ? siLoaded : suLoaded;
-
-  const handleSubmit = async (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    if (!isLoaded) return;
-    setError(null);
-    setBusy(true);
-    try {
-      if (mode === "signin") {
-        const result = await signIn!.create({ identifier: email, password });
-        if (result.status === "complete") {
-          await setSIActive!({ session: result.createdSessionId });
-          localStorage.setItem("pq_returning", "1");
-          router.push("/map");
-        }
-      } else {
-        const result = await signUp!.create({ emailAddress: email, password });
-        if (result.status === "complete") {
-          await setSUActive!({ session: result.createdSessionId });
-          onSignUpComplete();
-        }
-      }
-    } catch (err: unknown) {
-      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
-      const msg =
-        clerkErr?.errors?.[0]?.longMessage ??
-        clerkErr?.errors?.[0]?.message ??
-        "Something went wrong. Please try again.";
-      setError(msg);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleOAuth = async (strategy: "oauth_apple" | "oauth_google") => {
-    if (!siLoaded) return;
-    try {
-      await signIn!.authenticateWithRedirect({
-        strategy,
-        redirectUrl: "/sign-in/sso-callback",
-        redirectUrlComplete: "/onboarding/username",
-      });
-    } catch {
-      setError("OAuth sign-in failed. Please try again.");
-    }
-  };
 
   const socialBtnStyle: React.CSSProperties = {
     flex: 1,
@@ -331,8 +294,147 @@ function AuthForm({ mode, onSignUpComplete }: { mode: "signin" | "signup"; onSig
     cursor: "pointer",
   };
 
-  return (
-    <form onSubmit={handleSubmit}>
+  const dividerStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  };
+
+  const errorBoxStyle: React.CSSProperties = {
+    background: "rgba(197,107,61,0.10)",
+    border: "0.5px solid rgba(197,107,61,0.30)",
+    borderRadius: 10,
+    padding: "10px 14px",
+    fontSize: 12.5,
+    color: "var(--accent)",
+    marginBottom: 12,
+  };
+
+  const primaryBtnStyle = (disabled: boolean): React.CSSProperties => ({
+    width: "100%",
+    background: "var(--primary)",
+    color: "#FFFBF1",
+    border: "none",
+    borderRadius: 12,
+    padding: "14px 0",
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: disabled ? "wait" : "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    boxShadow: "0 8px 22px rgba(31,61,46,0.30)",
+    opacity: disabled ? 0.7 : 1,
+  });
+
+  const secondaryBtnStyle: React.CSSProperties = {
+    width: "100%",
+    background: "transparent",
+    color: "var(--ink-mute)",
+    border: "0.5px solid var(--hairline)",
+    borderRadius: 12,
+    padding: "12px 0",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    marginTop: 8,
+  };
+
+  const handleOAuth = async (strategy: "oauth_apple" | "oauth_google") => {
+    const loader = mode === "signin" ? siLoaded : suLoaded;
+    if (!loader) return;
+    try {
+      if (mode === "signin") {
+        await signIn!.authenticateWithRedirect({
+          strategy,
+          redirectUrl: "/sign-in/sso-callback",
+          redirectUrlComplete: "/onboarding/username",
+        });
+      } else {
+        await signUp!.authenticateWithRedirect({
+          strategy,
+          redirectUrl: "/sso-callback",
+          redirectUrlComplete: "/",
+        });
+      }
+    } catch {
+      setError("OAuth sign-in failed. Please try again.");
+    }
+  };
+
+  // ── Sign-in submit ────────────────────────────────────────────────────────────
+  const handleSignIn = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!siLoaded) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await signIn!.create({ identifier: siEmail, password: siPassword });
+      if (result.status === "complete") {
+        await setSIActive!({ session: result.createdSessionId });
+        localStorage.setItem("pq_returning", "1");
+        router.push("/map");
+      }
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      setError(clerkErr?.errors?.[0]?.longMessage ?? clerkErr?.errors?.[0]?.message ?? "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ── Sign-up: step 1 → step 2 ──────────────────────────────────────────────────
+  const handleEmailContinue = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!suEmail) return;
+    setError(null);
+    setSuStep("password");
+  };
+
+  // ── Sign-up: step 2 → step 3 (calls signUp.create with CAPTCHA in DOM) ────────
+  const handleCreateAccount = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!suLoaded) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await signUp!.create({ emailAddress: suEmail, password: suPassword });
+      await signUp!.prepareEmailAddressVerification({ strategy: "email_code" });
+      setSuStep("verify");
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      setError(clerkErr?.errors?.[0]?.longMessage ?? clerkErr?.errors?.[0]?.message ?? "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ── Sign-up: step 3 — verify email ───────────────────────────────────────────
+  const handleVerify = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!suLoaded) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await signUp!.attemptEmailAddressVerification({ code: suCode });
+      if (result.status === "complete") {
+        await setSUActive!({ session: result.createdSessionId });
+        onSignUpComplete();
+      } else {
+        setError("Verification incomplete. Please try again.");
+      }
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      setError(clerkErr?.errors?.[0]?.longMessage ?? clerkErr?.errors?.[0]?.message ?? "Incorrect code.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const OAuthButtons = () => (
+    <>
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
         <button type="button" onClick={() => handleOAuth("oauth_apple")} style={socialBtnStyle}>
           <AppleGlyph />
@@ -343,92 +445,83 @@ function AuthForm({ mode, onSignUpComplete }: { mode: "signin" | "signup"; onSig
           Google
         </button>
       </div>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
+      <div style={dividerStyle}>
         <div style={{ flex: 1, height: "0.5px", background: "var(--hairline)" }} />
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            letterSpacing: "1.5px",
-            color: "var(--ink-mute)",
-            fontWeight: 600,
-          }}
-        >
-          OR
-        </span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "1.5px", color: "var(--ink-mute)", fontWeight: 600 }}>OR</span>
         <div style={{ flex: 1, height: "0.5px", background: "var(--hairline)" }} />
       </div>
+    </>
+  );
 
-      <DField label={mode === "signin" ? "Email or Username" : "Email"} type={mode === "signin" ? "text" : "email"} value={email} onChange={setEmail} />
-      <DField
-        label="Password"
-        type={showPw ? "text" : "password"}
-        value={password}
-        onChange={setPassword}
-        trailing={showPw ? "Hide" : "Show"}
-        onTrailingClick={() => setShowPw((v) => !v)}
-      />
-
-      {mode === "signin" && (
+  // ── Sign-in (unchanged single-screen flow) ───────────────────────────────────
+  if (mode === "signin") {
+    return (
+      <form onSubmit={handleSignIn}>
+        <OAuthButtons />
+        <DField label="Email or Username" type="text" value={siEmail} onChange={setSiEmail} />
+        <DField label="Password" type={siShowPw ? "text" : "password"} value={siPassword} onChange={setSiPassword} trailing={siShowPw ? "Hide" : "Show"} onTrailingClick={() => setSiShowPw((v) => !v)} />
         <div style={{ textAlign: "right", marginBottom: 14 }}>
-          <a
-            href="/forgot-password"
-            style={{ fontSize: 12, color: "var(--ink-mute)", fontWeight: 600, textDecoration: "none" }}
+          <a href="/forgot-password" style={{ fontSize: 12, color: "var(--ink-mute)", fontWeight: 600, textDecoration: "none" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--primary)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--ink-mute)"; }}
-          >
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--ink-mute)"; }}>
             Forgot password?
           </a>
         </div>
-      )}
+        {error && <div style={errorBoxStyle}>{error}</div>}
+        <button type="submit" disabled={busy} style={primaryBtnStyle(busy)}>
+          Sign In <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />
+        </button>
+      </form>
+    );
+  }
 
-      {error && (
-        <div
-          style={{
-            background: "rgba(197,107,61,0.10)",
-            border: "0.5px solid rgba(197,107,61,0.30)",
-            borderRadius: 10,
-            padding: "10px 14px",
-            fontSize: 12.5,
-            color: "var(--accent)",
-            marginBottom: 12,
-          }}
-        >
-          {error}
+  // ── Sign-up step 1: email ─────────────────────────────────────────────────────
+  if (suStep === "email") {
+    return (
+      <form onSubmit={handleEmailContinue}>
+        <OAuthButtons />
+        <DField label="Email" type="email" value={suEmail} onChange={setSuEmail} />
+        {error && <div style={errorBoxStyle}>{error}</div>}
+        <button type="submit" disabled={!suEmail} style={primaryBtnStyle(!suEmail)}>
+          Continue <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />
+        </button>
+      </form>
+    );
+  }
+
+  // ── Sign-up step 2: password (clerk-captcha must be here when create() fires) ─
+  if (suStep === "password") {
+    return (
+      <form onSubmit={handleCreateAccount}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-mute)", letterSpacing: "0.4px", marginBottom: 16, textAlign: "center" }}>
+          Creating account for <span style={{ color: "var(--ink)", fontWeight: 700 }}>{suEmail}</span>
         </div>
-      )}
+        <DField label="Password" type={suShowPw ? "text" : "password"} value={suPassword} onChange={setSuPassword} trailing={suShowPw ? "Hide" : "Show"} onTrailingClick={() => setSuShowPw((v) => !v)} />
+        <div id="clerk-captcha" />
+        {error && <div style={errorBoxStyle}>{error}</div>}
+        <button type="submit" disabled={busy || !suPassword} style={primaryBtnStyle(busy || !suPassword)}>
+          {busy ? "Creating account…" : "Create Account"} {!busy && <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />}
+        </button>
+        <button type="button" onClick={() => { setSuStep("email"); setError(null); setSuPassword(""); }} style={secondaryBtnStyle}>
+          Back
+        </button>
+      </form>
+    );
+  }
 
-      <button
-        type="submit"
-        disabled={busy}
-        style={{
-          width: "100%",
-          background: "var(--primary)",
-          color: "#FFFBF1",
-          border: "none",
-          borderRadius: 12,
-          padding: "14px 0",
-          fontSize: 14,
-          fontWeight: 700,
-          cursor: busy ? "wait" : "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          boxShadow: "0 8px 22px rgba(31,61,46,0.30)",
-          opacity: busy ? 0.7 : 1,
-        }}
-      >
-        {mode === "signin" ? "Sign In" : "Create Account"}
-        <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />
+  // ── Sign-up step 3: verify email ──────────────────────────────────────────────
+  return (
+    <form onSubmit={handleVerify}>
+      <div style={{ fontSize: 13, color: "var(--ink-mute)", marginBottom: 16, lineHeight: 1.5 }}>
+        We sent a verification code to <span style={{ color: "var(--ink)", fontWeight: 700 }}>{suEmail}</span>. Enter it below to confirm your account.
+      </div>
+      <DField label="Verification Code" type="text" value={suCode} onChange={setSuCode} />
+      {error && <div style={errorBoxStyle}>{error}</div>}
+      <button type="submit" disabled={busy || !suCode} style={primaryBtnStyle(busy || !suCode)}>
+        {busy ? "Verifying…" : "Verify Email"} {!busy && <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />}
+      </button>
+      <button type="button" onClick={() => { setSuStep("password"); setError(null); setSuCode(""); }} style={secondaryBtnStyle}>
+        Back
       </button>
     </form>
   );

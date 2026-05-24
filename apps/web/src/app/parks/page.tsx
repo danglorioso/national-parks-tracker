@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -458,7 +458,7 @@ function chipStyle(active: boolean): React.CSSProperties {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function ParksPage() {
+function ParksPageContent() {
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
 
@@ -651,5 +651,13 @@ export default function ParksPage() {
         </div>
       </div>
     </DesktopShell>
+  );
+}
+
+export default function ParksPage() {
+  return (
+    <Suspense>
+      <ParksPageContent />
+    </Suspense>
   );
 }

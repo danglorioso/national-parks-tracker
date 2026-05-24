@@ -2,13 +2,14 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Home, Sparkles, Map, User, Award, Compass,
   Check, Bookmark, PenLine, Users, Globe, TreePine,
-  Plus, ChevronDown, LogOut, UserCircle, Pencil, Sun, Search, MapPin,
+  Plus, ChevronDown, LogOut, UserCircle, Pencil, Sun, Search,
 } from "lucide-react";
+import { GlobalSpotlight } from "@/components/desktop/GlobalSpotlight";
 import { useTheme, type Palette } from "@/components/ThemeProvider";
 import EditProfileDialog from "@/components/EditProfileDialog";
 
@@ -247,212 +248,6 @@ function AccountMenu({ onEditAccount }: { onEditAccount: () => void }) {
   );
 }
 
-// ── Sidebar Search ────────────────────────────────────────────────────────────
-
-interface ParkResult { park_code: string; name: string; states: string; }
-interface UserResult { username: string; full_name: string | null; avatar_url: string | null; is_self: boolean; }
-
-function SidebarSearch() {
-  const router = useRouter();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const [results, setResults] = useState<{ parks: ParkResult[]; users: UserResult[] }>({ parks: [], users: [] });
-
-  const search = useCallback((query: string) => {
-    if (!query.trim()) { setResults({ parks: [], users: [] }); setOpen(false); return; }
-    const enc = encodeURIComponent(query);
-    Promise.all([
-      fetch(`/api/parks/search?q=${enc}`).then(r => r.ok ? r.json() : []),
-      fetch(`/api/users/search?q=${enc}`).then(r => r.ok ? r.json() : []),
-    ]).then(([parks, users]: [ParkResult[], UserResult[]]) => {
-      setResults({ parks, users });
-      setOpen(parks.length > 0 || users.length > 0);
-    }).catch(() => {});
-  }, []);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setQ(val);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => search(val), 250);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const t = setTimeout(() => document.addEventListener("mousedown", onDocClick), 0);
-    return () => { clearTimeout(t); document.removeEventListener("mousedown", onDocClick); };
-  }, [open]);
-
-  const handleSelect = (href: string) => {
-    setQ(""); setResults({ parks: [], users: [] }); setOpen(false);
-    router.push(href);
-  };
-
-  return (
-    <div ref={containerRef} style={{ position: "relative", padding: "0 12px 12px" }}>
-      {/* Input */}
-      <div
-        style={{
-          background: "var(--surface)",
-          border: "0.5px solid var(--hairline)",
-          borderRadius: 10,
-          padding: "7px 10px",
-          display: "flex",
-          alignItems: "center",
-          gap: 7,
-        }}
-      >
-        <Search style={{ width: 13, height: 13, color: "var(--ink-mute)", flexShrink: 0 }} strokeWidth={2.2} />
-        <input
-          value={q}
-          onChange={handleChange}
-          onFocus={() => { if (results.parks.length > 0 || results.users.length > 0) setOpen(true); }}
-          placeholder="Search…"
-          style={{
-            flex: 1,
-            border: "none",
-            outline: "none",
-            background: "transparent",
-            fontSize: 12.5,
-            color: "var(--ink)",
-            fontFamily: "inherit",
-          }}
-        />
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 9,
-            color: "var(--ink-mute)",
-            padding: "2px 5px",
-            background: "var(--surface-alt)",
-            borderRadius: 4,
-            letterSpacing: "0.4px",
-            fontWeight: 600,
-            flexShrink: 0,
-          }}
-        >
-          ⌘K
-        </span>
-      </div>
-
-      {/* Dropdown */}
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% - 4px)",
-            left: 12,
-            right: 12,
-            background: "rgba(255,251,241,0.98)",
-            backdropFilter: "blur(24px) saturate(160%)",
-            WebkitBackdropFilter: "blur(24px) saturate(160%)",
-            border: "0.5px solid var(--hairline)",
-            borderRadius: 10,
-            boxShadow: "0 12px 40px rgba(0,0,0,0.18)",
-            zIndex: 200,
-            overflow: "hidden",
-          }}
-        >
-          {results.parks.length > 0 && (
-            <>
-              <div
-                style={{
-                  padding: "8px 12px 3px",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 9,
-                  letterSpacing: "1.4px",
-                  color: "var(--ink-mute)",
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                }}
-              >
-                Parks
-              </div>
-              {results.parks.slice(0, 5).map((park) => (
-                <button
-                  key={park.park_code}
-                  onClick={() => handleSelect(`/parks/${park.park_code}`)}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(31,61,46,0.06)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                  style={{
-                    width: "100%", background: "transparent", border: 0,
-                    padding: "7px 12px", cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: 9, textAlign: "left",
-                  }}
-                >
-                  <MapPin style={{ width: 12, height: 12, color: "var(--primary)", flexShrink: 0 }} strokeWidth={2} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 12.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {park.name}
-                    </div>
-                    <div style={{ fontSize: 10.5, color: "var(--ink-mute)", fontFamily: "var(--font-mono)" }}>
-                      {park.states}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </>
-          )}
-          {results.users.length > 0 && (
-            <>
-              <div
-                style={{
-                  padding: "8px 12px 3px",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 9,
-                  letterSpacing: "1.4px",
-                  color: "var(--ink-mute)",
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                }}
-              >
-                People
-              </div>
-              {results.users.slice(0, 4).map((user) => (
-                <button
-                  key={user.username}
-                  onClick={() => handleSelect(`/profile/${user.username}`)}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(31,61,46,0.06)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                  style={{
-                    width: "100%", background: "transparent", border: 0,
-                    padding: "7px 12px", cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: 9, textAlign: "left",
-                  }}
-                >
-                  {user.avatar_url ? (
-                    <img src={user.avatar_url} alt={user.username} style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--surface-alt)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "var(--ink-mute)" }}>
-                      {user.username[0]?.toUpperCase()}
-                    </div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {user.full_name && (
-                      <div style={{ fontWeight: 600, fontSize: 12.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {user.full_name}{user.is_self ? " (you)" : ""}
-                      </div>
-                    )}
-                    <div style={{ fontSize: 10.5, color: "var(--ink-mute)", fontFamily: "var(--font-mono)" }}>
-                      @{user.username}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </>
-          )}
-          <div style={{ height: 6 }} />
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Sidebar ──────────────────────────────────────────────────────────────────
 
 interface SidebarProps {
@@ -461,9 +256,10 @@ interface SidebarProps {
   bucketCount: number;
   onLogVisit?: () => void;
   onEditAccount: () => void;
+  onOpenSpotlight: () => void;
 }
 
-function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit, onEditAccount }: SidebarProps) {
+function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit, onEditAccount, onOpenSpotlight }: SidebarProps) {
   const pathname = usePathname();
   const pct = totalCount > 0 ? (visitedCount / totalCount) * 100 : 0;
 
@@ -484,8 +280,22 @@ function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit, onE
         <Wordmark />
       </div>
 
-      {/* Search */}
-      <SidebarSearch />
+      {/* Search trigger */}
+      <div style={{ padding: "0 12px 12px" }}>
+        <button
+          onClick={onOpenSpotlight}
+          style={{
+            width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)",
+            borderRadius: 10, padding: "7px 10px", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 7,
+            fontFamily: "inherit",
+          }}
+        >
+          <Search style={{ width: 13, height: 13, color: "var(--ink-mute)", flexShrink: 0 }} strokeWidth={2.2} />
+          <span style={{ flex: 1, textAlign: "left", fontSize: 12.5, color: "var(--ink-mute)", fontWeight: 500 }}>Search…</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--ink-mute)", padding: "2px 5px", background: "var(--surface-alt)", borderRadius: 4, letterSpacing: "0.4px", fontWeight: 600, flexShrink: 0 }}>⌘K</span>
+        </button>
+      </div>
 
       {/* Log a visit CTA */}
       <div style={{ padding: "0 12px 14px" }}>
@@ -658,6 +468,18 @@ export function DesktopShell({
   const [totalCount, setTotalCount] = useState(63);
   const [bucketCount, setBucketCount] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
+  const [spotlightOpen, setSpotlightOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSpotlightOpen((s) => !s);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   useEffect(() => {
     fetch("/api/visits")
@@ -696,12 +518,14 @@ export function DesktopShell({
         onSaved={() => { void user?.reload(); }}
         overlayLeft={232}
       />
+      <GlobalSpotlight open={spotlightOpen} onClose={() => setSpotlightOpen(false)} />
       <DesktopSidebar
         visitedCount={visitedCount}
         totalCount={totalCount}
         bucketCount={bucketCount}
         onLogVisit={onLogVisit}
         onEditAccount={() => setEditOpen(true)}
+        onOpenSpotlight={() => setSpotlightOpen(true)}
       />
 
       <div className="flex flex-1 min-w-0 min-h-0" style={{ background: "var(--bg)" }}>
