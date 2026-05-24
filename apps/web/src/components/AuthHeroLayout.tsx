@@ -21,12 +21,12 @@ const ANIMATIONS = `
   @keyframes pqTopoDrift      { 0% { background-position: 0 0 } 100% { background-position: 420px 200px } }
   @keyframes pqScrollHint     { 0%,100% { transform: translateX(-50%) translateY(0); opacity: 0.7 } 50% { transform: translateX(-50%) translateY(6px); opacity: 1 } }
   @keyframes pqFloat          { 0%,100% { transform: translateY(0) rotate(var(--pq-r,0deg)) } 50% { transform: translateY(-6px) rotate(var(--pq-r,0deg)) } }
-  @keyframes pqCloud          { 0% { transform: translateX(-100%) } 100% { transform: translateX(250%) } }
+  @keyframes pqCloud          { 0% { transform: translateX(-110%) } 100% { transform: translateX(800%) } }
   @keyframes pqShootingStar   {
     0%,10%  { transform: translateX(0) translateY(0) rotate(-42deg); opacity: 0; }
     12%     { opacity: 1; }
-    24%     { transform: translateX(-320px) translateY(320px) rotate(-42deg); opacity: 0; }
-    100%    { transform: translateX(-320px) translateY(320px) rotate(-42deg); opacity: 0; }
+    24%     { transform: translateX(var(--ss-dx,-320px)) translateY(var(--ss-dy,320px)) rotate(-42deg); opacity: 0; }
+    100%    { transform: translateX(var(--ss-dx,-320px)) translateY(var(--ss-dy,320px)) rotate(-42deg); opacity: 0; }
   }
   .pq-left-col::-webkit-scrollbar { display: none }
   @media (prefers-reduced-motion: reduce) {
@@ -45,10 +45,24 @@ const STARS: [number, number, number, number][] = [
   [80,220,0.6,0.9],[200,260,0.65,2.1],[60,140,0.55,3.2],[600,90,0.7,1.0],[700,170,0.6,0.4],
 ];
 
-const SHOOTING_STARS: Array<{ right: string; top: number; width: number; delay: number; duration: number }> = [
-  { right: "28%", top: 55,  width: 90,  delay: 0,  duration: 22 },
-  { right: "14%", top: 35,  width: 70,  delay: 9,  duration: 28 },
-  { right: "42%", top: 75,  width: 100, delay: 18, duration: 24 },
+const SHOOTING_STARS: Array<{ right: string; top: number; width: number; height: number; delay: number; duration: number; dx: number; dy: number }> = [
+  { right: "28%", top: 55,  width: 90,  height: 1.5, delay: 0,  duration: 22, dx: -300, dy: 300 },
+  { right: "14%", top: 32,  width: 65,  height: 1,   delay: 31, duration: 30, dx: -250, dy: 250 },
+  { right: "42%", top: 78,  width: 115, height: 2,   delay: 11, duration: 19, dx: -380, dy: 380 },
+  { right: "7%",  top: 18,  width: 50,  height: 1,   delay: 52, duration: 40, dx: -200, dy: 200 },
+  { right: "58%", top: 95,  width: 140, height: 2.5, delay: 6,  duration: 16, dx: -440, dy: 440 },
+  { right: "50%", top: 42,  width: 60,  height: 1,   delay: 43, duration: 46, dx: -220, dy: 220 },
+  { right: "22%", top: 135, width: 85,  height: 1.5, delay: 24, duration: 33, dx: -340, dy: 340 },
+];
+
+const CLOUDS: Array<{ width: string; top: string; opacity: number; duration: number; delay: number; variant: number }> = [
+  { width: "42%", top: "13%", opacity: 0.16, duration: 60,  delay: 0,  variant: 0 },
+  { width: "24%", top: "22%", opacity: 0.10, duration: 95,  delay: 15, variant: 1 },
+  { width: "54%", top: "7%",  opacity: 0.08, duration: 45,  delay: 30, variant: 2 },
+  { width: "32%", top: "18%", opacity: 0.13, duration: 75,  delay: 6,  variant: 0 },
+  { width: "16%", top: "29%", opacity: 0.11, duration: 110, delay: 42, variant: 1 },
+  { width: "38%", top: "3%",  opacity: 0.07, duration: 68,  delay: 54, variant: 2 },
+  { width: "28%", top: "25%", opacity: 0.12, duration: 88,  delay: 22, variant: 0 },
 ];
 
 const FEATURES = [
@@ -553,6 +567,27 @@ function AuthForm({
 
 // ── Sections ──────────────────────────────────────────────────────────────────
 
+function CloudShape({ variant }: { variant: number }) {
+  if (variant === 1) return <>
+    <ellipse cx="30" cy="17" rx="22" ry="5" fill="#FFFBF1" />
+    <ellipse cx="75" cy="15" rx="45" ry="7" fill="#FFFBF1" />
+    <ellipse cx="140" cy="16" rx="48" ry="6" fill="#FFFBF1" />
+    <ellipse cx="183" cy="18" rx="18" ry="4" fill="#FFFBF1" />
+  </>;
+  if (variant === 2) return <>
+    <ellipse cx="28" cy="19" rx="20" ry="8" fill="#FFFBF1" />
+    <ellipse cx="62" cy="13" rx="28" ry="12" fill="#FFFBF1" />
+    <ellipse cx="102" cy="11" rx="32" ry="13" fill="#FFFBF1" />
+    <ellipse cx="143" cy="14" rx="28" ry="10" fill="#FFFBF1" />
+    <ellipse cx="170" cy="18" rx="18" ry="7" fill="#FFFBF1" />
+  </>;
+  return <>
+    <ellipse cx="40" cy="16" rx="32" ry="9" fill="#FFFBF1" />
+    <ellipse cx="82" cy="14" rx="38" ry="10" fill="#FFFBF1" />
+    <ellipse cx="128" cy="17" rx="28" ry="8" fill="#FFFBF1" />
+  </>;
+}
+
 function HeroSection({ onScroll }: { onScroll: () => void }) {
   return (
     <div
@@ -591,27 +626,40 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
         }}
       />
 
-      {/* Drifting cloud */}
-      <div
-        style={{
-          position: "absolute",
-          top: "15%",
-          left: 0,
-          right: 0,
-          height: 30,
-          opacity: 0.18,
-          pointerEvents: "none",
-        }}
-      >
-        <svg
-          viewBox="0 0 200 30"
-          preserveAspectRatio="none"
-          style={{ width: "40%", height: "100%", animation: "pqCloud 60s linear infinite" }}
-        >
-          <ellipse cx="40" cy="15" rx="32" ry="8" fill="#FFFBF1" />
-          <ellipse cx="80" cy="14" rx="38" ry="9" fill="#FFFBF1" />
-          <ellipse cx="125" cy="16" rx="28" ry="7" fill="#FFFBF1" />
-        </svg>
+      {/* Drifting clouds — mask fades edges so clouds never pop in/out */}
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+        maskImage: "linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)",
+      }}>
+        {CLOUDS.map((c, i) => (
+          <div
+            key={`cloud-${i}`}
+            style={{
+              position: "absolute",
+              top: c.top,
+              left: 0,
+              right: 0,
+              height: 36,
+              opacity: c.opacity,
+            }}
+          >
+            <svg
+              viewBox="0 0 200 36"
+              preserveAspectRatio="none"
+              style={{
+                width: c.width,
+                height: "100%",
+                animation: `pqCloud ${c.duration}s ${c.delay}s linear infinite`,
+                animationFillMode: "backwards",
+              }}
+            >
+              <CloudShape variant={c.variant} />
+            </svg>
+          </div>
+        ))}
       </div>
 
       {/* Mountains — 3 parallax layers */}
@@ -686,13 +734,15 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
             top: s.top,
             right: s.right,
             width: s.width,
-            height: 1.5,
+            height: s.height,
             borderRadius: 2,
             background: "linear-gradient(90deg, #FFFBF1 0%, rgba(255,251,241,0.9) 30%, transparent 100%)",
             animation: `pqShootingStar ${s.duration}s ${s.delay}s ease-out infinite`,
             animationFillMode: "backwards",
             pointerEvents: "none",
-          }}
+            "--ss-dx": `${s.dx}px`,
+            "--ss-dy": `${s.dy}px`,
+          } as React.CSSProperties}
         />
       ))}
 
@@ -721,7 +771,7 @@ function HeroSection({ onScroll }: { onScroll: () => void }) {
           style={{ marginTop: -3 }}
         >
           <path d="M3 20L9 9l3 5 3-7 6 13H3z" />
-          <circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none" />
+          <circle cx="20" cy="4" r="3.5" fill="#FFFBF1" stroke="none" />
         </svg>
         <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: -0.4 }}>
           Park<span style={{ fontWeight: 500 }}>Quest</span>
