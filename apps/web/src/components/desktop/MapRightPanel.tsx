@@ -279,9 +279,7 @@ export function MapRightPanel({
                 lineHeight: 1.55,
               }}
             >
-              {park.description.length > 200
-                ? park.description.slice(0, 200) + "…"
-                : park.description}
+              {park.description}
             </div>
           </div>
         )}
@@ -315,9 +313,7 @@ export function MapRightPanel({
                   lineHeight: 1.55,
                 }}
               >
-                {park.notes.length > 180
-                  ? park.notes.slice(0, 180) + "…"
-                  : park.notes}
+                {park.notes}
               </div>
             )}
           </div>

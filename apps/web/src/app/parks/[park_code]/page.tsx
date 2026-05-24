@@ -1119,7 +1119,7 @@ export default function ParkDetailPage({
                 gridTemplateColumns: "repeat(4, 1fr)",
               }}
             >
-              <StatTile label="State" value={stateLabel} />
+              <StatTile label="State" value={stateName} sm />
               <StatTile label="Status" value={status === "visited" ? "Visited" : status === "bucketList" ? "Bucket list" : "—"} border />
               <StatTile
                 label="Visits"

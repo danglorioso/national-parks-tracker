@@ -29,6 +29,21 @@ type StatusFilter = "all" | "visited" | "bucketList" | "notVisited";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const STATE_NAMES: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+  DC: "Washington D.C.", AS: "American Samoa", GU: "Guam", MP: "Northern Mariana Islands",
+  PR: "Puerto Rico", VI: "U.S. Virgin Islands",
+};
+
 const GRADIENTS = [
   ["#1F3D2E", "#2F7A4A", "#C56B3D"],
   ["#2D4F66", "#1F3D2E", "#D89A3A"],
@@ -118,7 +133,8 @@ function CardSkeleton({ index }: { index: number }) {
 
 function ParkCard({ park, status, coverUrl }: { park: Park; status: "visited" | "bucketList" | "notVisited"; coverUrl?: string }) {
   const gradient = parkGradient(park.park_code);
-  const state = park.states.split(",")[0]?.trim() ?? park.states;
+  const stateAbbr = park.states.split(",")[0]?.trim() ?? park.states;
+  const state = STATE_NAMES[stateAbbr] ?? stateAbbr;
 
   return (
     <Link href={`/parks/${park.park_code}`} style={{ textDecoration: "none", display: "block" }}>
@@ -556,11 +572,11 @@ export default function ParksPage() {
             {/* Header */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "1.6px", color: "var(--ink-mute)", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>
-                National Parks
+                {parks.length} National Parks
               </div>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
                 <div style={{ fontWeight: 900, fontSize: 30, color: "var(--ink)", letterSpacing: -0.8 }}>
-                  {parks.length} Parks
+                  Explore the Parks
                 </div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-mute)", fontWeight: 600 }}>
                   {visitedCount} / {parks.length} visited
@@ -603,28 +619,6 @@ export default function ParksPage() {
                 </button>
               )}
             </div>
-
-            {/* Active activity chips */}
-            {activityFilters.length > 0 && (
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                {activityFilters.map((a) => (
-                  <button
-                    key={a}
-                    onClick={() => toggleActivity(a)}
-                    style={{
-                      display: "inline-flex", alignItems: "center", gap: 5,
-                      background: "var(--primary)", color: "#FFFBF1",
-                      border: "none", borderRadius: 100,
-                      padding: "4px 10px 4px 12px",
-                      fontSize: 11.5, fontWeight: 600, cursor: "pointer",
-                    }}
-                  >
-                    {a}
-                    <X size={11} strokeWidth={2.5} />
-                  </button>
-                ))}
-              </div>
-            )}
 
             {/* Results count */}
             {hasFilter && (
