@@ -258,13 +258,23 @@ function GoogleGlyph() {
   );
 }
 
-function AuthForm({ mode, onSignUpComplete }: { mode: "signin" | "signup"; onSignUpComplete: () => void }) {
+function AuthForm({
+  mode,
+  onSignUpComplete,
+  onSwitchToSignIn,
+  initialSignInEmail = "",
+}: {
+  mode: "signin" | "signup";
+  onSignUpComplete: () => void;
+  onSwitchToSignIn?: (email: string) => void;
+  initialSignInEmail?: string;
+}) {
   const router = useRouter();
   const { signIn, setActive: setSIActive, isLoaded: siLoaded } = useSignIn();
   const { signUp, setActive: setSUActive, isLoaded: suLoaded } = useSignUp();
 
   // Sign-in state
-  const [siEmail, setSiEmail] = useState("");
+  const [siEmail, setSiEmail] = useState(initialSignInEmail);
   const [siPassword, setSiPassword] = useState("");
   const [siShowPw, setSiShowPw] = useState(false);
 
@@ -386,21 +396,35 @@ function AuthForm({ mode, onSignUpComplete }: { mode: "signin" | "signup"; onSig
   };
 
   // ── Sign-up: step 1 → step 2 ──────────────────────────────────────────────────
-  const handleEmailContinue = (e: React.SyntheticEvent) => {
+  const handleEmailContinue = async (e: React.SyntheticEvent) => {
     e.preventDefault();
-    if (!suEmail) return;
+    if (!suEmail || !suLoaded) return;
     setError(null);
-    setSuStep("password");
+    setBusy(true);
+    try {
+      await signUp!.create({ emailAddress: suEmail });
+      setSuStep("password");
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ code?: string; longMessage?: string; message?: string }> };
+      const firstErr = clerkErr?.errors?.[0];
+      if (firstErr?.code === "form_identifier_exists") {
+        onSwitchToSignIn?.(suEmail);
+      } else {
+        setError(firstErr?.longMessage ?? firstErr?.message ?? "Something went wrong.");
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // ── Sign-up: step 2 → step 3 (calls signUp.create with CAPTCHA in DOM) ────────
+  // ── Sign-up: step 2 → step 3 (CAPTCHA must be in DOM) ───────────────────────
   const handleCreateAccount = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!suLoaded) return;
     setError(null);
     setBusy(true);
     try {
-      await signUp!.create({ emailAddress: suEmail, password: suPassword });
+      await signUp!.update({ password: suPassword });
       await signUp!.prepareEmailAddressVerification({ strategy: "email_code" });
       setSuStep("verify");
     } catch (err: unknown) {
@@ -482,8 +506,8 @@ function AuthForm({ mode, onSignUpComplete }: { mode: "signin" | "signup"; onSig
         <OAuthButtons />
         <DField label="Email" type="email" value={suEmail} onChange={setSuEmail} />
         {error && <div style={errorBoxStyle}>{error}</div>}
-        <button type="submit" disabled={!suEmail} style={primaryBtnStyle(!suEmail)}>
-          Continue <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />
+        <button type="submit" disabled={busy || !suEmail} style={primaryBtnStyle(busy || !suEmail)}>
+          {busy ? "Checking…" : "Continue"} {!busy && <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />}
         </button>
       </form>
     );
@@ -1444,6 +1468,7 @@ export function AuthHeroLayout({ children, forcedMode }: AuthHeroLayoutProps) {
   const [mode, setMode] = useState<"signin" | "signup" | "username">(
     () => forcedMode ?? (localStorage.getItem("pq_returning") ? "signin" : "signup")
   );
+  const [prefilledEmail, setPrefilledEmail] = useState("");
 
   const scrollToAbout = () => {
     document.getElementById("about")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1575,7 +1600,12 @@ export function AuthHeroLayout({ children, forcedMode }: AuthHeroLayoutProps) {
           {mode === "username" ? (
             <UsernameStep />
           ) : (
-            <AuthForm mode={mode} onSignUpComplete={() => setMode("username")} />
+            <AuthForm
+              mode={mode}
+              onSignUpComplete={() => setMode("username")}
+              onSwitchToSignIn={(email) => { setPrefilledEmail(email); setMode("signin"); }}
+              initialSignInEmail={mode === "signin" ? prefilledEmail : ""}
+            />
           )}
         </div>
 
