@@ -8,6 +8,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved?: () => void;
+  overlayLeft?: number;
 }
 
 const INPUT: React.CSSProperties = {
@@ -33,7 +34,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-export default function EditProfileDialog({ open, onOpenChange, onSaved }: Props) {
+export default function EditProfileDialog({ open, onOpenChange, onSaved, overlayLeft = 0 }: Props) {
   const { user } = useUser();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -123,7 +124,7 @@ export default function EditProfileDialog({ open, onOpenChange, onSaved }: Props
     <div
       onClick={() => !saving && onOpenChange(false)}
       style={{
-        position: "fixed", inset: 0, zIndex: 200,
+        position: "fixed", top: 0, right: 0, bottom: 0, left: overlayLeft, zIndex: 200,
         background: "rgba(0,0,0,0.48)",
         display: "flex", alignItems: "center", justifyContent: "center",
         backdropFilter: "blur(4px)",

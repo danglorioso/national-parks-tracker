@@ -72,14 +72,13 @@ const NAV = [
 
 // ── AccountMenu ───────────────────────────────────────────────────────────────
 
-function AccountMenu() {
+function AccountMenu({ onEditAccount }: { onEditAccount: () => void }) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
   const { dark, setDark, palette, setPalette } = useTheme();
   const [open, setOpen] = useState(false);
   const [showAppearance, setShowAppearance] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -111,7 +110,7 @@ function AccountMenu() {
 
   const menuItems = [
     { icon: UserCircle, label: "View profile", sub: "Your passport", onClick: () => { setOpen(false); router.push("/passport"); } },
-    { icon: Pencil,     label: "Edit account",  onClick: () => { setOpen(false); setEditOpen(true); } },
+    { icon: Pencil,     label: "Edit account",  onClick: () => { setOpen(false); onEditAccount(); } },
     { icon: Sun,        label: "Appearance",    sub: dark ? "Dark" : "Light", onClick: () => setShowAppearance(s => !s) },
     { divider: true },
     { icon: UserPlus,   label: "Switch account", onClick: () => setOpen(false) },
@@ -120,11 +119,6 @@ function AccountMenu() {
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <EditProfileDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        onSaved={() => { void user?.reload(); }}
-      />
       {/* Resting pill */}
       <button
         onClick={() => setOpen(o => !o)}
@@ -279,9 +273,10 @@ interface SidebarProps {
   totalCount: number;
   bucketCount: number;
   onLogVisit?: () => void;
+  onEditAccount: () => void;
 }
 
-function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit }: SidebarProps) {
+function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit, onEditAccount }: SidebarProps) {
   const pathname = usePathname();
   const pct = totalCount > 0 ? (visitedCount / totalCount) * 100 : 0;
 
@@ -447,7 +442,7 @@ function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit }: S
         </div>
 
         {/* Account menu */}
-        <AccountMenu />
+        <AccountMenu onEditAccount={onEditAccount} />
       </div>
     </aside>
   );
@@ -468,9 +463,11 @@ export function DesktopShell({
   rightRail,
   onLogVisit,
 }: DesktopShellProps) {
+  const { user } = useUser();
   const [visitedCount, setVisitedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(63);
   const [bucketCount, setBucketCount] = useState(0);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/visits")
@@ -503,11 +500,18 @@ export function DesktopShell({
       className="flex h-screen overflow-hidden"
       style={{ background: "var(--bg)" }}
     >
+      <EditProfileDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => { void user?.reload(); }}
+        overlayLeft={232}
+      />
       <DesktopSidebar
         visitedCount={visitedCount}
         totalCount={totalCount}
         bucketCount={bucketCount}
         onLogVisit={onLogVisit}
+        onEditAccount={() => setEditOpen(true)}
       />
 
       <div className="flex flex-1 min-w-0 min-h-0" style={{ background: "var(--bg)" }}>
