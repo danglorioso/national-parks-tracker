@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Home } from "lucide-react";
 import maplibregl from "maplibre-gl";
 import type { GeoJSONSource, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -343,12 +344,14 @@ export default function USAMapGL({
       {/* Zoom controls — bottom-right, matching D3 map style */}
       <div style={{ position: "absolute", right: 16, bottom: 16, display: "flex", flexDirection: "column", gap: 4, zIndex: 10 }}>
         {([
-          { label: "+",  action: () => mapRef.current?.zoomIn() },
-          { label: "−",  action: () => mapRef.current?.zoomOut() },
-          { label: "⊙",  action: () => mapRef.current?.flyTo({ center: [-98.5, 39.0], zoom: 3.6 }) },
+          { label: "+",    action: () => mapRef.current?.zoomIn() },
+          { label: "−",    action: () => mapRef.current?.zoomOut() },
+          { label: "home", action: () => mapRef.current?.flyTo({ center: [-98.5, 39.0], zoom: 3.6 }) },
         ] as const).map(({ label, action }) => (
-          <button key={label} onClick={action} style={{ ...BTN, fontFamily: label === "⊙" ? "inherit" : "var(--font-mono)", fontSize: label === "⊙" ? 14 : 18 }}>
-            {label}
+          <button key={label} onClick={action} style={{ ...BTN, fontFamily: "var(--font-mono)", fontSize: 18 }}>
+            {label === "home"
+              ? <Home style={{ width: 14, height: 14, color: "#4A4535" }} strokeWidth={2} />
+              : label}
           </button>
         ))}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, Check, Bookmark, BookmarkX, ArrowRight, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import { fullStateName } from "@/lib/stateNames";
 import { LightboxModal, type LightboxImage } from "@/components/LightboxModal";
@@ -23,6 +23,17 @@ interface Props {
   onAddToBucketList: () => void;
   onRemoveFromBucketList: () => void;
   onEditVisit: () => void;
+}
+
+function useEscapeKey(onClose: () => void) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    // Capture phase fires before MapLibre GL can stop propagation
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [onClose]);
 }
 
 function parkGradient(code: string): string {
@@ -105,6 +116,14 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
   const [npsImages, setNpsImages] = useState<LightboxImage[]>([]);
   const [imgIdx, setImgIdx]       = useState(0);
   const [lightbox, setLightbox]   = useState<number | null>(null);
+  const [closing, setClosing]     = useState(false);
+
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(onClose, 190);
+  }, [onClose]);
+
+  useEscapeKey(handleClose);
 
   useEffect(() => {
     setNpsImages([]);
@@ -155,10 +174,15 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
           border: "0.5px solid var(--hairline)", borderRadius: 14,
           boxShadow: "0 12px 36px rgba(0,0,0,0.18)",
           display: "flex", flexDirection: "column", overflow: "hidden",
-          animation: "pqPeekInD 220ms cubic-bezier(.2,.7,.3,1)",
+          animation: closing
+            ? "pqPeekOutD 190ms cubic-bezier(.5,.1,.7,.9) forwards"
+            : "pqPeekInD 220ms cubic-bezier(.2,.7,.3,1)",
         }}
       >
-        <style>{`@keyframes pqPeekInD { from { opacity:0; transform:translateX(8px) } to { opacity:1; transform:translateX(0) } }`}</style>
+        <style>{`
+          @keyframes pqPeekInD  { from { opacity:0; transform:translateX(8px) } to   { opacity:1; transform:translateX(0) } }
+          @keyframes pqPeekOutD { from { opacity:1; transform:translateX(0) }    to   { opacity:0; transform:translateX(8px) } }
+        `}</style>
 
         {/* Hero / carousel */}
         <div style={{ position: "relative", height: 200, flexShrink: 0, background: parkGradient(park.park_code) }}>
@@ -201,7 +225,7 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
 
           {/* Close */}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             style={{
               position: "absolute", top: 10, right: 10, width: 28, height: 28,
               borderRadius: 14, background: "rgba(20,17,12,0.55)", border: 0,
