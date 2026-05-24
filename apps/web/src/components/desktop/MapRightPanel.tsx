@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, Check, Bookmark, BookmarkX, ArrowRight, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Check, Bookmark, BookmarkX, ArrowRight, Pencil, ChevronLeft, ChevronRight, Footprints, DollarSign } from "lucide-react";
 import { fullStateName } from "@/lib/stateNames";
 import { LightboxModal, type LightboxImage } from "@/components/LightboxModal";
+import type { NpsData } from "@/app/api/parks/[park_code]/nps/route";
 
 interface Park {
   park_code: string;
@@ -117,6 +118,7 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
   const [imgIdx, setImgIdx]       = useState(0);
   const [lightbox, setLightbox]   = useState<number | null>(null);
   const [closing, setClosing]     = useState(false);
+  const [npsData, setNpsData]     = useState<NpsData | null>(null);
 
   const handleClose = useCallback(() => {
     setClosing(true);
@@ -128,6 +130,7 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
   useEffect(() => {
     setNpsImages([]);
     setImgIdx(0);
+    setNpsData(null);
     fetch(`/api/parks/${park.park_code}/images`)
       .then((r) => r.json())
       .then((data) => {
@@ -139,6 +142,10 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
         );
         setNpsImages(imgs);
       })
+      .catch(() => {});
+    fetch(`/api/parks/${park.park_code}/nps`)
+      .then((r) => r.json())
+      .then(setNpsData)
       .catch(() => {});
   }, [park.park_code]);
 
@@ -203,12 +210,12 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
             </>
           )}
 
-          {/* Dot indicators — aligned with status badge row */}
+          {/* Dot indicators — centered */}
           {total > 1 && (
             <div
               style={{
-                position: "absolute", bottom: 12, right: 14,
-                display: "flex", alignItems: "center", gap: 5, pointerEvents: "none",
+                position: "absolute", bottom: 12, left: 0, right: 0,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 5, pointerEvents: "none",
               }}
             >
               {allImages.map((_, i) => (
@@ -244,7 +251,7 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
 
         {/* Scrollable body */}
         <div style={{ flex: 1, overflowY: "auto" }}>
-          {/* Name + state */}
+          {/* Name + state + profile link */}
           <div style={{ padding: "14px 18px 12px" }}>
             <a
               href={`/parks/${park.park_code}`}
@@ -254,8 +261,24 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
             >
               {park.name}
             </a>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-mute)", letterSpacing: "0.8px", marginTop: 3, fontWeight: 600 }}>
-              {firstState}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-mute)", letterSpacing: "0.8px", fontWeight: 600 }}>
+                {firstState}
+              </div>
+              <a
+                href={`/parks/${park.park_code}`}
+                style={{
+                  display: "flex", alignItems: "center", gap: 3,
+                  fontFamily: "var(--font-mono)", fontSize: 9.5, fontWeight: 700,
+                  color: "var(--primary)", textDecoration: "none", letterSpacing: "0.4px",
+                  opacity: 0.8,
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.opacity = "1"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.opacity = "0.8"; }}
+              >
+                View full profile
+                <ArrowRight style={{ width: 10, height: 10 }} strokeWidth={2.5} />
+              </a>
             </div>
           </div>
 
@@ -268,6 +291,66 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
               <div style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.55 }}>
                 {park.description}
               </div>
+            </div>
+          )}
+
+          {/* Activities */}
+          {npsData && npsData.activities.length > 0 && (
+            <div style={{ padding: "12px 18px", borderTop: "0.5px solid var(--hairline-soft)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
+                <Footprints style={{ width: 9, height: 9, color: "var(--ink-mute)" }} strokeWidth={2} />
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "1.4px", color: "var(--ink-mute)", fontWeight: 600 }}>
+                  ACTIVITIES
+                </div>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {npsData.activities.slice(0, 8).map((activity) => (
+                  <span
+                    key={activity}
+                    style={{
+                      display: "inline-flex", alignItems: "center",
+                      padding: "3px 9px", borderRadius: 100,
+                      border: "0.5px solid var(--hairline)",
+                      background: "var(--surface-alt)",
+                      fontSize: 10.5, color: "var(--ink-soft)", fontWeight: 500,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {activity}
+                  </span>
+                ))}
+                {npsData.activities.length > 8 && (
+                  <span style={{ fontSize: 10.5, color: "var(--ink-mute)", alignSelf: "center", paddingLeft: 2 }}>
+                    +{npsData.activities.length - 8} more
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Entrance fees */}
+          {npsData && (
+            <div style={{ padding: "12px 18px", borderTop: "0.5px solid var(--hairline-soft)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
+                <DollarSign style={{ width: 9, height: 9, color: "var(--ink-mute)" }} strokeWidth={2} />
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: "1.4px", color: "var(--ink-mute)", fontWeight: 600 }}>
+                  ENTRANCE
+                </div>
+              </div>
+              {npsData.entranceFees.length === 0 ? (
+                <div style={{ fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 500 }}>Free to visit</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {npsData.entranceFees.slice(0, 2).map((fee, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                      <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.3, flex: 1, marginRight: 8 }}>{fee.title}</div>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "var(--ink)", flexShrink: 0 }}>
+                        ${parseFloat(fee.cost).toFixed(0)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -306,7 +389,7 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
                 Mark visited
               </ActionBtn>
               {park.status === "bucketList" ? (
-                <ActionBtn bg="var(--surface-alt)" color="var(--ink)" onClick={onRemoveFromBucketList}>
+                <ActionBtn bg="var(--bucket)" color="#FFFBF1" onClick={onRemoveFromBucketList}>
                   <BookmarkX style={{ width: 14, height: 14 }} strokeWidth={2} />
                   On bucket list
                 </ActionBtn>

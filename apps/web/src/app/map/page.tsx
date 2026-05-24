@@ -269,64 +269,61 @@ export default function Home() {
             onDeselect={() => setSelectedParkCode(null)}
           />
 
-          {/* Top-left — Filter chip cluster */}
-          <div style={{ position: "absolute", top: 16, left: 16, zIndex: 20 }}>
-            <div
-              style={{
-                background: "rgba(255,251,241,0.92)",
-                backdropFilter: "blur(24px) saturate(160%)",
-                WebkitBackdropFilter: "blur(24px) saturate(160%)",
-                border: "0.5px solid var(--hairline)",
-                borderRadius: 100,
-                padding: 4,
-                display: "flex",
-                gap: 2,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-              }}
-            >
-              {[
-                { key: "all" as FilterStatus,        label: "All",     color: "var(--ink)",       count: parks.length },
-                { key: "visited" as FilterStatus,    label: "Visited", color: "var(--visited)",   count: parks.filter(p => p.status === "visited").length },
-                { key: "bucketList" as FilterStatus, label: "Bucket",  color: "var(--bucket)",    count: parks.filter(p => p.status === "bucketList").length },
-                { key: "notVisited" as FilterStatus, label: "Not yet", color: "var(--unvisited)", count: parks.filter(p => p.status === "notVisited").length },
-              ].map((f) => {
-                const active = filterStatus === f.key;
-                return (
-                  <button
-                    key={f.key}
-                    onClick={() => { setFilterStatus(f.key); setSelectedParkCode(null); }}
-                    style={{
-                      background: active ? "rgba(31,61,46,0.08)" : "transparent",
-                      border: 0,
-                      cursor: "pointer",
-                      borderRadius: 100,
-                      padding: "5px 11px 5px 9px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontWeight: active ? 700 : 600,
-                      fontSize: 11.5,
-                      color: active ? "var(--ink)" : "var(--ink-soft)",
-                      transition: "background 120ms",
-                    }}
-                  >
-                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: f.color }} />
-                    {f.label}
-                    <span
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 9.5,
-                        color: "var(--ink-mute)",
-                        fontVariantNumeric: "tabular-nums",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {f.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          {/* Top-left — Filter + counts pill */}
+          <div
+            style={{
+              position: "absolute",
+              top: 16,
+              left: 16,
+              zIndex: 20,
+              background: "rgba(255,251,241,0.92)",
+              backdropFilter: "blur(24px) saturate(160%)",
+              WebkitBackdropFilter: "blur(24px) saturate(160%)",
+              border: "0.5px solid var(--hairline)",
+              borderRadius: 100,
+              padding: "6px 8px",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              fontFamily: "var(--font-mono)",
+              fontSize: 10.5,
+              letterSpacing: "0.6px",
+              fontWeight: 600,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+            }}
+          >
+            {[
+              { key: "all" as FilterStatus,        dot: "var(--ink)",       label: "ALL",     count: parks.length },
+              { key: "visited" as FilterStatus,    dot: "var(--visited)",   label: "VISITED", count: visitedParksCount },
+              { key: "bucketList" as FilterStatus, dot: "var(--bucket)",    label: "BUCKET",  count: bucketListCount },
+              { key: "notVisited" as FilterStatus, dot: "var(--unvisited)", label: "TO GO",   count: parks.filter(p => p.status === "notVisited").length },
+            ].map((f, i, arr) => (
+              <>
+                <button
+                  key={f.key}
+                  onClick={() => { setFilterStatus(f.key); setSelectedParkCode(null); }}
+                  style={{
+                    background: filterStatus === f.key ? "rgba(31,61,46,0.08)" : "transparent",
+                    border: 0,
+                    cursor: "pointer",
+                    borderRadius: 100,
+                    padding: "4px 10px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    color: filterStatus === f.key ? "var(--ink)" : "var(--ink-soft)",
+                    transition: "background 120ms",
+                  }}
+                >
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: f.dot, display: "inline-block", flexShrink: 0 }} />
+                  <b style={{ color: "var(--ink)", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{f.count}</b>
+                  {f.label}
+                </button>
+                {i < arr.length - 1 && (
+                  <span key={`sep-${i}`} style={{ width: 1, height: 12, background: "var(--hairline)", display: "inline-block", flexShrink: 0 }} />
+                )}
+              </>
+            ))}
           </div>
 
           {/* Top-center — Spotlight search */}
@@ -337,46 +334,6 @@ export default function Home() {
             onClose={() => setSpotOpen(false)}
             onPick={(code) => { setSelectedParkCode(code); setSpotOpen(false); }}
           />
-
-          {/* Top-right — Quest counts pill */}
-          <div
-            style={{
-              position: "absolute",
-              top: 16,
-              right: 16,
-              zIndex: 20,
-              background: "rgba(255,251,241,0.92)",
-              backdropFilter: "blur(24px) saturate(160%)",
-              WebkitBackdropFilter: "blur(24px) saturate(160%)",
-              border: "0.5px solid var(--hairline)",
-              borderRadius: 100,
-              padding: "8px 16px",
-              display: "flex",
-              alignItems: "center",
-              gap: 14,
-              fontFamily: "var(--font-mono)",
-              fontSize: 10.5,
-              color: "var(--ink-soft)",
-              letterSpacing: "0.6px",
-              fontWeight: 600,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--visited)", display: "inline-block" }} />
-              <b style={{ color: "var(--ink)", fontWeight: 700 }}>{visitedParksCount}</b> VISITED
-            </span>
-            <span style={{ width: 1, height: 12, background: "var(--hairline)", display: "inline-block" }} />
-            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--bucket)", display: "inline-block" }} />
-              <b style={{ color: "var(--ink)", fontWeight: 700 }}>{bucketListCount}</b> BUCKET
-            </span>
-            <span style={{ width: 1, height: 12, background: "var(--hairline)", display: "inline-block" }} />
-            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--unvisited)", display: "inline-block" }} />
-              <b style={{ color: "var(--ink)", fontWeight: 700 }}>{parks.filter(p => p.status === "notVisited").length}</b> TO GO
-            </span>
-          </div>
 
           {/* Right floating panel — park detail peek */}
           {selectedPark && (
