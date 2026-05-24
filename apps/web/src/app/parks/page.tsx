@@ -72,6 +72,48 @@ const REGIONS: { label: string; states: string[] }[] = [
   { label: "Territories",   states: ["AS", "GU", "MP", "PR", "VI"] },
 ];
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+function topoPattern(color: string, opacity: number): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420' viewBox='0 0 420 420'><g fill='none' stroke='${color}' stroke-opacity='${opacity}' stroke-width='1'><path d='M-20 60 Q 60 30 130 60 T 280 60 T 440 60'/><path d='M-20 110 Q 60 80 130 110 T 280 110 T 440 110'/><path d='M-20 160 Q 60 130 130 160 T 280 160 T 440 160'/><path d='M-20 210 Q 60 180 130 210 T 280 210 T 440 210'/><path d='M-20 260 Q 60 230 130 260 T 280 260 T 440 260'/><path d='M-20 310 Q 60 280 130 310 T 280 310 T 440 310'/><path d='M-20 360 Q 60 330 130 360 T 280 360 T 440 360'/><path d='M-20 410 Q 60 380 130 410 T 280 410 T 440 410'/></g></svg>`;
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+}
+
+const SKELETON_GRADIENTS = [
+  ["#1F3D2E", "#2F7A4A"],
+  ["#2D4F66", "#1F3D2E"],
+  ["#7B3A1F", "#C56B3D"],
+  ["#3A2E5C", "#6E97A3"],
+  ["#2F7A4A", "#2D4F66"],
+  ["#1F3D2E", "#3A2E5C"],
+];
+
+function CardSkeleton({ index }: { index: number }) {
+  const [a, b] = SKELETON_GRADIENTS[index % SKELETON_GRADIENTS.length];
+  const gradient = `linear-gradient(160deg, ${a} 0%, ${b} 100%)`;
+  return (
+    <div
+      style={{
+        background: "var(--surface)",
+        border: "0.5px solid var(--hairline)",
+        borderRadius: 14,
+        overflow: "hidden",
+        animation: "pqSkeleton 1.6s ease-in-out infinite",
+        animationDelay: `${(index % 6) * 0.08}s`,
+      }}
+    >
+      <style>{`@keyframes pqSkeleton { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
+      <div style={{ height: 120, background: gradient, backgroundImage: topoPattern("#ffffff", 0.10) }} />
+      <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 7 }}>
+        <div style={{ width: 48, height: 9, borderRadius: 4, background: "var(--surface-alt)" }} />
+        <div style={{ width: "80%", height: 14, borderRadius: 5, background: "var(--surface-alt)" }} />
+        <div style={{ width: "100%", height: 11, borderRadius: 4, background: "var(--surface-alt)" }} />
+        <div style={{ width: "65%", height: 11, borderRadius: 4, background: "var(--surface-alt)" }} />
+      </div>
+    </div>
+  );
+}
+
 // ── ParkCard ──────────────────────────────────────────────────────────────────
 
 function ParkCard({ park, status, coverUrl }: { park: Park; status: "visited" | "bucketList" | "notVisited"; coverUrl?: string }) {
@@ -404,6 +446,7 @@ export default function ParksPage() {
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
 
+  const [loading, setLoading] = useState(true);
   const [parks, setParks] = useState<Park[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [activitiesMap, setActivitiesMap] = useState<Record<string, string[]>>({});
@@ -440,6 +483,7 @@ export default function ParksPage() {
       setActivitiesMap(a);
       setTopicsMap(t);
       setImagesMap(img);
+      setLoading(false);
     });
   }, [isSignedIn]);
 
@@ -590,7 +634,13 @@ export default function ParksPage() {
             )}
 
             {/* Grid */}
-            {filtered.length > 0 ? (
+            {loading ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
+                {Array.from({ length: 18 }).map((_, i) => (
+                  <CardSkeleton key={i} index={i} />
+                ))}
+              </div>
+            ) : filtered.length > 0 ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
                 {filtered.map((park) => (
                   <ParkCard key={park.park_code} park={park} status={parkStatus(park.park_code, visits)} coverUrl={imagesMap[park.park_code]} />

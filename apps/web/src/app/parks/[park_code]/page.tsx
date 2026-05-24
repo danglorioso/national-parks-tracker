@@ -2,7 +2,7 @@
 
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -53,6 +53,13 @@ function parkGradient(code: string): string {
   const idx = code.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % GRADIENTS.length;
   const [a, b, c] = GRADIENTS[idx];
   return `linear-gradient(160deg, ${a} 0%, ${b} 55%, ${c} 130%)`;
+}
+
+// ── Topo pattern (wavy lines overlay) ────────────────────────────────────────
+
+function topoPattern(color: string, opacity: number): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420' viewBox='0 0 420 420'><g fill='none' stroke='${color}' stroke-opacity='${opacity}' stroke-width='1'><path d='M-20 60 Q 60 30 130 60 T 280 60 T 440 60'/><path d='M-20 110 Q 60 80 130 110 T 280 110 T 440 110'/><path d='M-20 160 Q 60 130 130 160 T 280 160 T 440 160'/><path d='M-20 210 Q 60 180 130 210 T 280 210 T 440 210'/><path d='M-20 260 Q 60 230 130 260 T 280 260 T 440 260'/><path d='M-20 310 Q 60 280 130 310 T 280 310 T 440 310'/><path d='M-20 360 Q 60 330 130 360 T 280 360 T 440 360'/><path d='M-20 410 Q 60 380 130 410 T 280 410 T 440 410'/></g></svg>`;
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
 }
 
 // ── State name lookup ─────────────────────────────────────────────────────────
@@ -823,6 +830,8 @@ export default function ParkDetailPage({
   const [activitiesExpanded, setActivitiesExpanded] = useState(false);
   const [topicsExpanded, setTopicsExpanded] = useState(false);
   const [lightbox, setLightbox] = useState<{ images: LightboxImage[]; index: number } | null>(null);
+  const [heroLoaded, setHeroLoaded]   = useState(false);
+  const [stripLoaded, setStripLoaded] = useState([false, false, false, false]);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/");
@@ -970,15 +979,27 @@ export default function ParkDetailPage({
                 height: 360,
               }}
             >
-              {nps?.images[0] ? (
-                <img
-                  src={nps?.images[0].url}
-                  alt={nps?.images[0].altText || park.name}
+              {/* Gradient + topo skeleton — always present, fades out once image loads */}
+              <div
+                style={{
+                  position: "absolute", inset: 0,
+                  background: gradient,
+                  backgroundImage: topoPattern("#ffffff", 0.10),
+                  opacity: heroLoaded ? 0 : 1,
+                  transition: "opacity 0.5s ease",
+                  pointerEvents: "none",
+                }}
+              />
+              {nps?.images[0] && (
+                <Image
+                  src={nps.images[0].url}
+                  alt={nps.images[0].altText || park.name}
+                  fill
+                  sizes="(max-width: 1200px) 100vw, 900px"
+                  onLoad={() => setHeroLoaded(true)}
                   onClick={() => setLightbox({ images: nps.images.map((img) => ({ url: img.url, caption: img.title || undefined, credit: img.credit || undefined })), index: 0 })}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer" }}
+                  style={{ objectFit: "cover", cursor: "pointer", opacity: heroLoaded ? 1 : 0, transition: "opacity 0.5s ease" }}
                 />
-              ) : (
-                <div style={{ width: "100%", height: "100%", background: gradient }} />
               )}
               <div
                 style={{
@@ -1037,24 +1058,23 @@ export default function ParkDetailPage({
           >
             {Array.from({ length: 4 }).map((_, i) => {
               const img = nps?.images[i + 1];
-              return img ? (
-                <img
-                  key={i}
-                  src={img.url}
-                  alt={img.altText || ""}
-                  onClick={() => setLightbox({ images: nps.images.map((im) => ({ url: im.url, caption: im.title || undefined, credit: im.credit || undefined })), index: i + 1 })}
-                  style={{ height: 120, width: "100%", objectFit: "cover", borderRadius: 10, cursor: "pointer" }}
-                />
-              ) : (
+              return (
                 <div
                   key={i}
-                  style={{
-                    height: 120,
-                    borderRadius: 10,
-                    background: gradient,
-                    opacity: 0.4 + i * 0.15,
-                  }}
-                />
+                  style={{ position: "relative", height: 120, borderRadius: 10, overflow: "hidden", background: gradient, backgroundImage: topoPattern("#ffffff", 0.10) }}
+                >
+                  {img && (
+                    <Image
+                      src={img.url}
+                      alt={img.altText || ""}
+                      fill
+                      sizes="200px"
+                      onLoad={() => setStripLoaded((prev) => prev.map((v, j) => j === i ? true : v))}
+                      onClick={() => setLightbox({ images: nps.images.map((im) => ({ url: im.url, caption: im.title || undefined, credit: im.credit || undefined })), index: i + 1 })}
+                      style={{ objectFit: "cover", cursor: "pointer", opacity: stripLoaded[i] ? 1 : 0, transition: "opacity 0.5s ease" }}
+                    />
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1274,9 +1294,8 @@ export default function ParkDetailPage({
                         <div style={{ display: "grid", gridTemplateColumns: "48px 1fr", rowGap: 6, columnGap: 12 }}>
                           {days.map((day) => (
                             h.standardHours[day] != null && (
-                              <>
+                              <React.Fragment key={day}>
                                 <span
-                                  key={`${day}-label`}
                                   style={{
                                     fontFamily: "var(--font-mono)",
                                     fontSize: 10,
@@ -1288,10 +1307,10 @@ export default function ParkDetailPage({
                                 >
                                   {dayLabels[day]}
                                 </span>
-                                <span key={`${day}-val`} style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+                                <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
                                   {h.standardHours[day]}
                                 </span>
-                              </>
+                              </React.Fragment>
                             )
                           ))}
                         </div>
