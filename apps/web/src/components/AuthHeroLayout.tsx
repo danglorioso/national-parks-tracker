@@ -82,23 +82,41 @@ const SCREENS = [
 
 function UsernameStep() {
   const router = useRouter();
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded: userLoaded } = useUser();
+  const { signUp, setActive: signUpSetActive, isLoaded: signUpLoaded } = useSignUp();
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const isLoaded = userLoaded && signUpLoaded;
 
   const handleChange = (v: string) =>
     setUsername(v.toLowerCase().replace(/[^a-z0-9_]/g, ""));
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
-    if (!isLoaded || !user || username.length < 3) return;
+    if (!isLoaded || username.length < 3) return;
     setError(null);
     setBusy(true);
     try {
-      await user.update({ username });
-      localStorage.setItem("pq_returning", "1");
-      router.push("/map");
+      if (signUp?.status === "missing_requirements") {
+        // SSO sign-up: complete it by providing the username
+        const result = await signUp.update({ username });
+        if (result.status === "complete" && result.createdSessionId) {
+          await signUpSetActive!({ session: result.createdSessionId });
+          localStorage.setItem("pq_returning", "1");
+          router.push("/map");
+        } else {
+          setError("Sign-up could not be completed. Please try again.");
+        }
+      } else if (user) {
+        // Already authenticated (email+password sign-up): just update username
+        await user.update({ username });
+        localStorage.setItem("pq_returning", "1");
+        router.push("/map");
+      } else {
+        router.replace("/");
+      }
     } catch (err: unknown) {
       const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
       setError(
