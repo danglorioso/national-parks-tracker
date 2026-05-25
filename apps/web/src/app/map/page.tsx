@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -298,9 +299,8 @@ export default function Home() {
               { key: "bucketList" as FilterStatus, dot: "var(--bucket)",    label: "BUCKET",  count: bucketListCount },
               { key: "notVisited" as FilterStatus, dot: "var(--unvisited)", label: "TO GO",   count: parks.filter(p => p.status === "notVisited").length },
             ].map((f, i, arr) => (
-              <>
+              <React.Fragment key={f.key}>
                 <button
-                  key={f.key}
                   onClick={() => { setFilterStatus(f.key); setSelectedParkCode(null); }}
                   style={{
                     background: filterStatus === f.key ? "rgba(31,61,46,0.08)" : "transparent",
@@ -320,9 +320,9 @@ export default function Home() {
                   {f.label}
                 </button>
                 {i < arr.length - 1 && (
-                  <span key={`sep-${i}`} style={{ width: 1, height: 12, background: "var(--hairline)", display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ width: 1, height: 12, background: "var(--hairline)", display: "inline-block", flexShrink: 0 }} />
                 )}
-              </>
+              </React.Fragment>
             ))}
           </div>
 

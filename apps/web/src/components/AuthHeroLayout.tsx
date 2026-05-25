@@ -580,15 +580,24 @@ function AuthForm({
     }
   };
 
-  // ── Sign-up: step 1 → step 2 ──────────────────────────────────────────────────
-  const handleEmailContinue = async (e: React.SyntheticEvent) => {
+  // ── Sign-up: step 1 → step 2 (no API call — CAPTCHA not in DOM yet) ──────────
+  const handleEmailContinue = (e: React.SyntheticEvent) => {
     e.preventDefault();
-    if (!suEmail || !suLoaded) return;
+    if (!suEmail) return;
+    setError(null);
+    setSuStep("password");
+  };
+
+  // ── Sign-up: step 2 → step 3 (clerk-captcha IS in DOM here) ─────────────────
+  const handleCreateAccount = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!suLoaded) return;
     setError(null);
     setBusy(true);
     try {
-      await signUp!.create({ emailAddress: suEmail });
-      setSuStep("password");
+      await signUp!.create({ emailAddress: suEmail, password: suPassword });
+      await signUp!.prepareEmailAddressVerification({ strategy: "email_code" });
+      setSuStep("verify");
     } catch (err: unknown) {
       const clerkErr = err as { errors?: Array<{ code?: string; longMessage?: string; message?: string }> };
       const firstErr = clerkErr?.errors?.[0];
@@ -597,24 +606,6 @@ function AuthForm({
       } else {
         setError(firstErr?.longMessage ?? firstErr?.message ?? "Something went wrong.");
       }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // ── Sign-up: step 2 → step 3 (CAPTCHA must be in DOM) ───────────────────────
-  const handleCreateAccount = async (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    if (!suLoaded) return;
-    setError(null);
-    setBusy(true);
-    try {
-      await signUp!.update({ password: suPassword });
-      await signUp!.prepareEmailAddressVerification({ strategy: "email_code" });
-      setSuStep("verify");
-    } catch (err: unknown) {
-      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
-      setError(clerkErr?.errors?.[0]?.longMessage ?? clerkErr?.errors?.[0]?.message ?? "Something went wrong.");
     } finally {
       setBusy(false);
     }
