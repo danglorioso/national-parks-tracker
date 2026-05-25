@@ -107,7 +107,7 @@ export default function SignUpModal({ open, onOpenChange, switchToSignIn }: Sign
       await signUp.authenticateWithRedirect({
         strategy: provider,
         redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/",
+        redirectUrlComplete: "/onboarding/username",
       });
     } catch (err: unknown) {
       const error = err as { errors?: Array<{ message?: string }> };

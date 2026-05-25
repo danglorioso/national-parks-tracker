@@ -171,6 +171,136 @@ function UsernameStep() {
   );
 }
 
+function ForgotPasswordForm({ initialEmail = "", onBack }: {
+  initialEmail?: string;
+  onBack: () => void;
+}) {
+  const { signIn, setActive, isLoaded } = useSignIn();
+  const router = useRouter();
+  const [step, setStep] = useState<"email" | "verify">("email");
+  const [email, setEmail] = useState(initialEmail);
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const errStyle: React.CSSProperties = {
+    background: "rgba(197,107,61,0.10)",
+    border: "0.5px solid rgba(197,107,61,0.30)",
+    borderRadius: 10,
+    padding: "10px 14px",
+    fontSize: 12.5,
+    color: "var(--accent)",
+    marginBottom: 12,
+  };
+
+  const primaryBtn = (disabled: boolean): React.CSSProperties => ({
+    width: "100%",
+    background: "var(--primary)",
+    color: "#FFFBF1",
+    border: "none",
+    borderRadius: 12,
+    padding: "14px 0",
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: disabled ? "wait" : "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    boxShadow: "0 8px 22px rgba(31,61,46,0.30)",
+    opacity: disabled ? 0.7 : 1,
+  });
+
+  const secondaryBtn: React.CSSProperties = {
+    width: "100%",
+    background: "transparent",
+    color: "var(--ink-mute)",
+    border: "0.5px solid var(--hairline)",
+    borderRadius: 12,
+    padding: "12px 0",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    marginTop: 8,
+  };
+
+  const handleSendCode = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await signIn!.create({ strategy: "reset_password_email_code", identifier: email });
+      setStep("verify");
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      setError(clerkErr?.errors?.[0]?.longMessage ?? clerkErr?.errors?.[0]?.message ?? "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReset = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await signIn!.attemptFirstFactor({
+        strategy: "reset_password_email_code",
+        code,
+        password,
+      });
+      if (result.status === "complete") {
+        await setActive!({ session: result.createdSessionId });
+        router.push("/map");
+      }
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      setError(clerkErr?.errors?.[0]?.longMessage ?? clerkErr?.errors?.[0]?.message ?? "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (step === "email") {
+    return (
+      <form onSubmit={handleSendCode}>
+        <DField label="Email" type="email" value={email} onChange={setEmail} />
+        {error && <div style={errStyle}>{error}</div>}
+        <button type="submit" disabled={busy || !email} style={primaryBtn(busy || !email)}>
+          {busy ? "Sending…" : "Send Reset Code"} {!busy && <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />}
+        </button>
+        <button type="button" onClick={onBack} style={secondaryBtn}>Back to Sign In</button>
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={handleReset}>
+      <div style={{ fontSize: 13, color: "var(--ink-mute)", marginBottom: 16, lineHeight: 1.5 }}>
+        We sent a reset code to <span style={{ color: "var(--ink)", fontWeight: 700 }}>{email}</span>. Enter it below along with your new password.
+      </div>
+      <DField label="Reset Code" type="text" value={code} onChange={setCode} />
+      <DField
+        label="New Password"
+        type={showPw ? "text" : "password"}
+        value={password}
+        onChange={setPassword}
+        trailing={showPw ? "Hide" : "Show"}
+        onTrailingClick={() => setShowPw((v) => !v)}
+      />
+      {error && <div style={errStyle}>{error}</div>}
+      <button type="submit" disabled={busy || !code || !password} style={primaryBtn(busy || !code || !password)}>
+        {busy ? "Resetting…" : "Reset Password"} {!busy && <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />}
+      </button>
+      <button type="button" onClick={() => { setStep("email"); setCode(""); setError(null); }} style={secondaryBtn}>Back</button>
+    </form>
+  );
+}
+
 function DField({
   label,
   type = "text",
@@ -276,21 +406,27 @@ function AuthForm({
   mode,
   onSignUpComplete,
   onSwitchToSignIn,
+  onForgotPassword,
   initialSignInEmail = "",
+  signInMessage = null,
 }: {
   mode: "signin" | "signup";
   onSignUpComplete: () => void;
   onSwitchToSignIn?: (email: string) => void;
+  onForgotPassword?: (email: string) => void;
   initialSignInEmail?: string;
+  signInMessage?: string | null;
 }) {
   const router = useRouter();
   const { signIn, setActive: setSIActive, isLoaded: siLoaded } = useSignIn();
   const { signUp, setActive: setSUActive, isLoaded: suLoaded } = useSignUp();
 
   // Sign-in state
+  const [siStep, setSiStep] = useState<"credentials" | "trust_challenge">("credentials");
   const [siEmail, setSiEmail] = useState(initialSignInEmail);
   const [siPassword, setSiPassword] = useState("");
   const [siShowPw, setSiShowPw] = useState(false);
+  const [siCode, setSiCode] = useState("");
 
   // Sign-up multi-step state
   const [suStep, setSuStep] = useState<"email" | "password" | "verify">("email");
@@ -301,6 +437,7 @@ function AuthForm({
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
 
   const socialBtnStyle: React.CSSProperties = {
     flex: 1,
@@ -369,21 +506,23 @@ function AuthForm({
   const handleOAuth = async (strategy: "oauth_apple" | "oauth_google") => {
     const loader = mode === "signin" ? siLoaded : suLoaded;
     if (!loader) return;
+    setOauthLoading(strategy === "oauth_google" ? "google" : "apple");
     try {
       if (mode === "signin") {
         await signIn!.authenticateWithRedirect({
           strategy,
-          redirectUrl: "/sign-in/sso-callback",
-          redirectUrlComplete: "/onboarding/username",
+          redirectUrl: "/sso-callback",
+          redirectUrlComplete: "/map",
         });
       } else {
         await signUp!.authenticateWithRedirect({
           strategy,
           redirectUrl: "/sso-callback",
-          redirectUrlComplete: "/",
+          redirectUrlComplete: "/onboarding/username",
         });
       }
     } catch {
+      setOauthLoading(null);
       setError("OAuth sign-in failed. Please try again.");
     }
   };
@@ -400,10 +539,42 @@ function AuthForm({
         await setSIActive!({ session: result.createdSessionId });
         localStorage.setItem("pq_returning", "1");
         router.push("/map");
+      } else if ((result.status as string) === "needs_client_trust") {
+        const emailFactor = result.supportedFirstFactors?.find(
+          (f) => f.strategy === "email_code"
+        );
+        if (emailFactor && "emailAddressId" in emailFactor) {
+          await signIn!.prepareFirstFactor({
+            strategy: "email_code",
+            emailAddressId: emailFactor.emailAddressId,
+          });
+        }
+        setSiStep("trust_challenge");
       }
     } catch (err: unknown) {
       const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
       setError(clerkErr?.errors?.[0]?.longMessage ?? clerkErr?.errors?.[0]?.message ?? "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ── Sign-in: trust challenge verify ──────────────────────────────────────────
+  const handleTrustVerify = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!siLoaded) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await signIn!.attemptFirstFactor({ strategy: "email_code", code: siCode });
+      if (result.status === "complete") {
+        await setSIActive!({ session: result.createdSessionId });
+        localStorage.setItem("pq_returning", "1");
+        router.push("/map");
+      }
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      setError(clerkErr?.errors?.[0]?.longMessage ?? clerkErr?.errors?.[0]?.message ?? "Incorrect code.");
     } finally {
       setBusy(false);
     }
@@ -471,15 +642,33 @@ function AuthForm({
     }
   };
 
-  const OAuthButtons = () => (
+  const spinner = (
+    <svg width="17" height="17" viewBox="0 0 24 24" style={{ animation: "spin 0.8s linear infinite" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" opacity="0.25" />
+      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+
+  const oauthButtonsJSX = (
     <>
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-        <button type="button" onClick={() => handleOAuth("oauth_apple")} style={socialBtnStyle}>
-          <AppleGlyph />
+        <button
+          type="button"
+          onClick={() => handleOAuth("oauth_apple")}
+          disabled={oauthLoading !== null}
+          style={{ ...socialBtnStyle, opacity: oauthLoading !== null ? 0.6 : 1, cursor: oauthLoading !== null ? "wait" : "pointer" }}
+        >
+          {oauthLoading === "apple" ? spinner : <AppleGlyph />}
           Apple
         </button>
-        <button type="button" onClick={() => handleOAuth("oauth_google")} style={socialBtnStyle}>
-          <GoogleGlyph />
+        <button
+          type="button"
+          onClick={() => handleOAuth("oauth_google")}
+          disabled={oauthLoading !== null}
+          style={{ ...socialBtnStyle, opacity: oauthLoading !== null ? 0.6 : 1, cursor: oauthLoading !== null ? "wait" : "pointer" }}
+        >
+          {oauthLoading === "google" ? spinner : <GoogleGlyph />}
           Google
         </button>
       </div>
@@ -491,19 +680,55 @@ function AuthForm({
     </>
   );
 
-  // ── Sign-in (unchanged single-screen flow) ───────────────────────────────────
+  // ── Sign-in: trust challenge step ────────────────────────────────────────────
+  if (mode === "signin" && siStep === "trust_challenge") {
+    return (
+      <form onSubmit={handleTrustVerify}>
+        <div style={{ fontSize: 13, color: "var(--ink-mute)", marginBottom: 16, lineHeight: 1.5 }}>
+          We sent a verification code to your email to confirm it&apos;s you signing in from a new device.
+        </div>
+        <DField label="Verification Code" type="text" value={siCode} onChange={setSiCode} />
+        {error && <div style={errorBoxStyle}>{error}</div>}
+        <button type="submit" disabled={busy || !siCode} style={primaryBtnStyle(busy || !siCode)}>
+          {busy ? "Verifying…" : "Verify"} {!busy && <ArrowRight style={{ width: 16, height: 16 }} strokeWidth={2.4} />}
+        </button>
+        <button type="button" onClick={() => { setSiStep("credentials"); setSiCode(""); setError(null); }} style={secondaryBtnStyle}>
+          Back
+        </button>
+      </form>
+    );
+  }
+
+  // ── Sign-in: credentials step ─────────────────────────────────────────────────
   if (mode === "signin") {
     return (
       <form onSubmit={handleSignIn}>
-        <OAuthButtons />
+        {oauthButtonsJSX}
+        {signInMessage && (
+          <div style={{
+            background: "rgba(31,61,46,0.08)",
+            border: "0.5px solid rgba(31,61,46,0.25)",
+            borderRadius: 10,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            color: "var(--primary)",
+            marginBottom: 12,
+          }}>
+            {signInMessage}
+          </div>
+        )}
         <DField label="Email or Username" type="text" value={siEmail} onChange={setSiEmail} />
         <DField label="Password" type={siShowPw ? "text" : "password"} value={siPassword} onChange={setSiPassword} trailing={siShowPw ? "Hide" : "Show"} onTrailingClick={() => setSiShowPw((v) => !v)} />
         <div style={{ textAlign: "right", marginBottom: 14 }}>
-          <a href="/forgot-password" style={{ fontSize: 12, color: "var(--ink-mute)", fontWeight: 600, textDecoration: "none" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--primary)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--ink-mute)"; }}>
+          <button
+            type="button"
+            onClick={() => onForgotPassword?.(siEmail)}
+            style={{ background: "none", border: "none", padding: 0, fontSize: 12, color: "var(--ink-mute)", fontWeight: 600, cursor: "pointer" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--primary)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ink-mute)"; }}
+          >
             Forgot password?
-          </a>
+          </button>
         </div>
         {error && <div style={errorBoxStyle}>{error}</div>}
         <button type="submit" disabled={busy} style={primaryBtnStyle(busy)}>
@@ -517,7 +742,7 @@ function AuthForm({
   if (suStep === "email") {
     return (
       <form onSubmit={handleEmailContinue}>
-        <OAuthButtons />
+        {oauthButtonsJSX}
         <DField label="Email" type="email" value={suEmail} onChange={setSuEmail} />
         {error && <div style={errorBoxStyle}>{error}</div>}
         <button type="submit" disabled={busy || !suEmail} style={primaryBtnStyle(busy || !suEmail)}>
@@ -1515,10 +1740,12 @@ interface AuthHeroLayoutProps {
 
 export function AuthHeroLayout({ children, forcedMode }: AuthHeroLayoutProps) {
   const leftRef = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<"signin" | "signup" | "username">(
+  const [mode, setMode] = useState<"signin" | "signup" | "username" | "forgot_password">(
     () => forcedMode ?? (localStorage.getItem("pq_returning") ? "signin" : "signup")
   );
   const [prefilledEmail, setPrefilledEmail] = useState("");
+  const [signInMessage, setSignInMessage] = useState<string | null>(null);
+  const [forgotEmail, setForgotEmail] = useState("");
 
   const scrollToAbout = () => {
     document.getElementById("about")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1593,18 +1820,20 @@ export function AuthHeroLayout({ children, forcedMode }: AuthHeroLayoutProps) {
             lineHeight: 1.05,
           }}
         >
-          {mode === "signin" ? "Welcome back." : mode === "signup" ? "Start your quest." : "One last thing."}
+          {mode === "signin" ? "Welcome back." : mode === "signup" ? "Start your quest." : mode === "forgot_password" ? "Reset password." : "One last thing."}
         </div>
         <div style={{ fontSize: 14, color: "var(--ink-mute)", marginTop: 6 }}>
           {mode === "signin"
             ? "Pick up where you left off."
             : mode === "signup"
             ? "Free, ad-free, your data stays yours."
+            : mode === "forgot_password"
+            ? "We'll send a reset code to your email."
             : "Choose a username for your explorer profile."}
         </div>
 
-        {/* Tab switcher — hidden during username step */}
-        {mode !== "username" && (
+        {/* Tab switcher — hidden during username and forgot_password steps */}
+        {mode !== "username" && mode !== "forgot_password" && (
           <div
             style={{
               display: "flex",
@@ -1620,7 +1849,7 @@ export function AuthHeroLayout({ children, forcedMode }: AuthHeroLayoutProps) {
               return (
                 <button
                   key={m}
-                  onClick={() => setMode(m)}
+                  onClick={() => { setMode(m); setSignInMessage(null); }}
                   style={{
                     flex: 1,
                     padding: "6px 0",
@@ -1649,18 +1878,25 @@ export function AuthHeroLayout({ children, forcedMode }: AuthHeroLayoutProps) {
         <div style={{ marginTop: 18 }}>
           {mode === "username" ? (
             <UsernameStep />
+          ) : mode === "forgot_password" ? (
+            <ForgotPasswordForm
+              initialEmail={forgotEmail}
+              onBack={() => { setForgotEmail(""); setMode("signin"); }}
+            />
           ) : (
             <AuthForm
               mode={mode}
               onSignUpComplete={() => setMode("username")}
-              onSwitchToSignIn={(email) => { setPrefilledEmail(email); setMode("signin"); }}
+              onSwitchToSignIn={(email) => { setPrefilledEmail(email); setSignInMessage("An account with this email already exists."); setMode("signin"); }}
+              onForgotPassword={(email) => { setForgotEmail(email); setMode("forgot_password"); }}
               initialSignInEmail={mode === "signin" ? prefilledEmail : ""}
+              signInMessage={mode === "signin" ? signInMessage : null}
             />
           )}
         </div>
 
-        {/* Terms footer — hidden during username step */}
-        {mode !== "username" && (
+        {/* Terms footer — hidden during username and forgot_password steps */}
+        {mode !== "username" && mode !== "forgot_password" && (
           <div
             style={{
               marginTop: 28,
