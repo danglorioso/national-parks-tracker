@@ -550,6 +550,8 @@ function AuthForm({
           });
         }
         setSiStep("trust_challenge");
+      } else {
+        setError("Sign-in could not be completed. Please try again.");
       }
     } catch (err: unknown) {
       const clerkErr = err as { errors?: Array<{ longMessage?: string; message?: string }> };
@@ -1725,11 +1727,10 @@ function FinalCTASection({ onAbout }: { onAbout: () => void }) {
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 interface AuthHeroLayoutProps {
-  children?: React.ReactNode;
   forcedMode?: "username";
 }
 
-export function AuthHeroLayout({ children, forcedMode }: AuthHeroLayoutProps) {
+export function AuthHeroLayout({ forcedMode }: AuthHeroLayoutProps) {
   const leftRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<"signin" | "signup" | "username" | "forgot_password">(
     () => forcedMode ?? (localStorage.getItem("pq_returning") ? "signin" : "signup")
@@ -1909,10 +1910,7 @@ export function AuthHeroLayout({ children, forcedMode }: AuthHeroLayoutProps) {
           </div>
         )}
 
-        {/* Hidden slot for Clerk SSO callback processing */}
-        <div aria-hidden style={{ position: "absolute", width: 0, height: 0, overflow: "hidden", opacity: 0, pointerEvents: "none" }}>
-          {children}
-        </div>
+
       </div>
     </div>
   );

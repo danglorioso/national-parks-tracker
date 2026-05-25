@@ -12,6 +12,7 @@ export default function SSOCallback() {
     handleRedirectCallback({
       signUpForceRedirectUrl: "/onboarding/username",
       signInForceRedirectUrl: "/map",
+      continueSignUpUrl: "/onboarding/username",
     }).catch(() => {
       router.replace("/");
     });
