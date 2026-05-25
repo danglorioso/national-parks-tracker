@@ -343,7 +343,7 @@ function DField({
         padding: "10px 14px",
         marginBottom: 10,
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-end",
         gap: 10,
       }}
     >
@@ -381,6 +381,7 @@ function DField({
       {trailing && (
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={onTrailingClick}
           style={{
             background: "transparent",
@@ -390,7 +391,7 @@ function DField({
             fontWeight: 600,
             color: "var(--ink-mute)",
             cursor: "pointer",
-            padding: 0,
+            padding: "4px 2px",
             flexShrink: 0,
           }}
         >
