@@ -14,6 +14,7 @@ export async function GET() {
 
     const userVisits = await db
       .select({
+        id: visits.id,
         park_code: visits.park_code,
         visited_date: visits.visited_date,
         is_bucket_list: visits.is_bucket_list,

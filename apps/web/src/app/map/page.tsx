@@ -26,6 +26,13 @@ interface ParkFromDB {
   description: string | null;
 }
 
+export interface VisitEntry {
+  id: number;
+  visited_date: string;
+  title?: string | null;
+  notes?: string | null;
+}
+
 interface ParkForMap {
   park_code: string;
   name: string;
@@ -38,6 +45,7 @@ interface ParkForMap {
   notes?: string | null;
   photos?: string[] | null;
   visibility?: string | null;
+  visits?: VisitEntry[];
 }
 
 
@@ -82,18 +90,46 @@ export default function Home() {
       const bucketListParkCodes: Set<string> = new Set();
       const visitDatesMap: Record<string, string> = {};
       const journalMap: Record<string, { title: string | null; notes: string | null; photos: string[] | null; visibility: string | null }> = {};
+      const visitsPerPark: Record<string, VisitEntry[]> = {};
 
       if (visitsResponse.ok) {
-        const visitsData: Array<{ park_code: string; is_bucket_list: boolean; visited_date: string | null; title: string | null; notes: string | null; photos: string[] | null; visibility: string | null }> = await visitsResponse.json();
+        const visitsData: Array<{
+          id: number;
+          park_code: string;
+          is_bucket_list: boolean;
+          visited_date: string | null;
+          title: string | null;
+          notes: string | null;
+          photos: string[] | null;
+          visibility: string | null;
+        }> = await visitsResponse.json();
+
         visitsData.forEach(visit => {
           if (visit.is_bucket_list) {
             bucketListParkCodes.add(visit.park_code);
           } else if (visit.visited_date) {
             visitedParkCodes.add(visit.park_code);
-            visitDatesMap[visit.park_code] = visit.visited_date;
-            journalMap[visit.park_code] = { title: visit.title, notes: visit.notes, photos: visit.photos, visibility: visit.visibility };
+            if (!visitsPerPark[visit.park_code]) visitsPerPark[visit.park_code] = [];
+            visitsPerPark[visit.park_code].push({
+              id: visit.id,
+              visited_date: visit.visited_date,
+              title: visit.title,
+              notes: visit.notes,
+            });
           }
         });
+
+        // For each park, sort visits newest-first and derive latest date/journal
+        for (const [parkCode, parkVisits] of Object.entries(visitsPerPark)) {
+          parkVisits.sort((a, b) => new Date(b.visited_date).getTime() - new Date(a.visited_date).getTime());
+          const latest = parkVisits[0];
+          visitDatesMap[parkCode] = latest.visited_date;
+          const latestFull = visitsData.find(v => v.park_code === parkCode && v.id === latest.id);
+          if (latestFull) {
+            journalMap[parkCode] = { title: latestFull.title, notes: latestFull.notes, photos: latestFull.photos, visibility: latestFull.visibility };
+          }
+        }
+
         setVisitedParksCount(visitedParkCodes.size);
       } else {
         setVisitedParksCount(0);
@@ -113,6 +149,7 @@ export default function Home() {
             status,
             description: park.description || undefined,
             visitedDate: visitDatesMap[park.park_code] || null,
+            visits: visitsPerPark[park.park_code] ?? [],
             ...(journalMap[park.park_code] ?? {}),
           };
         });
@@ -169,10 +206,8 @@ export default function Home() {
         }),
       });
       if (!response.ok) throw new Error('Failed to mark park as visited');
-      setParks(prev => prev.map(p =>
-        p.park_code === pendingParkCode ? { ...p, status: 'visited' as const, visitedDate: date.toISOString() } : p
-      ));
       if (!wasAlreadyVisited) setVisitedParksCount(prev => prev + 1);
+      await fetchParksAndVisits();
     } catch (error) {
       console.error('Error marking park as visited:', error);
     } finally {
@@ -224,12 +259,8 @@ export default function Home() {
       }),
     });
     if (!res.ok) return;
-    setParks(prev => prev.map(p =>
-      p.park_code === parkCode
-        ? { ...p, visitedDate: date.toISOString(), title: journal.title, notes: journal.notes, photos: journal.photos ?? null, visibility: journal.visibility }
-        : p
-    ));
     setPendingEdit(null);
+    await fetchParksAndVisits();
   };
 
   const handleMarkNotVisited = async (parkCode: string) => {
@@ -237,7 +268,7 @@ export default function Home() {
       const response = await fetch(`/api/visits?park_code=${parkCode}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to mark park as unvisited');
       setParks(prev => prev.map(p =>
-        p.park_code === parkCode ? { ...p, status: 'notVisited' as const, visitedDate: null } : p
+        p.park_code === parkCode ? { ...p, status: 'notVisited' as const, visitedDate: null, visits: [] } : p
       ));
       setVisitedParksCount(prev => Math.max(0, prev - 1));
     } catch (error) {
@@ -338,6 +369,7 @@ export default function Home() {
           {/* Right floating panel — park detail peek */}
           {selectedPark && (
             <MapRightPanel
+              key={selectedPark.park_code}
               park={selectedPark}
               onClose={() => setSelectedParkCode(null)}
               onMarkVisited={() => handleMarkVisited(selectedPark.park_code)}
