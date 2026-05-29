@@ -12,6 +12,7 @@ import {
 import { GlobalSpotlight } from "@/components/desktop/GlobalSpotlight";
 import { useTheme, type Palette } from "@/components/ThemeProvider";
 import EditProfileDialog from "@/components/EditProfileDialog";
+import { CreatePostModal } from "@/components/CreatePostModal";
 
 // ── Wordmark ─────────────────────────────────────────────────────────────────
 
@@ -301,8 +302,10 @@ function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit, onE
       <div style={{ padding: "0 12px 14px" }}>
         <button
           onClick={onLogVisit}
-          className="w-full flex items-center justify-center gap-[7px] font-bold cursor-pointer transition-opacity hover:opacity-90"
+          className="w-full flex items-center justify-center gap-[7px] font-bold cursor-pointer"
           style={{
+            WebkitAppearance: "none",
+            appearance: "none",
             background: "var(--primary)",
             color: "#FFFBF1",
             fontSize: 13,
@@ -311,6 +314,13 @@ function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit, onE
             borderRadius: "var(--r-sm)",
             border: "none",
             boxShadow: "0 4px 12px rgba(31,61,46,0.35)",
+            transition: "background-color 150ms",
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "color-mix(in srgb, var(--primary) 85%, white)";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--primary)";
           }}
         >
           <Plus className="w-[15px] h-[15px] shrink-0" strokeWidth={2.4} />
@@ -469,6 +479,9 @@ export function DesktopShell({
   const [bucketCount, setBucketCount] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
+  const [logVisitOpen, setLogVisitOpen] = useState(false);
+
+  const handleLogVisit = onLogVisit ?? (() => setLogVisitOpen(true));
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -519,11 +532,14 @@ export function DesktopShell({
         overlayLeft={232}
       />
       <GlobalSpotlight open={spotlightOpen} onClose={() => setSpotlightOpen(false)} />
+      {logVisitOpen && (
+        <CreatePostModal onClose={() => setLogVisitOpen(false)} />
+      )}
       <DesktopSidebar
         visitedCount={visitedCount}
         totalCount={totalCount}
         bucketCount={bucketCount}
-        onLogVisit={onLogVisit}
+        onLogVisit={handleLogVisit}
         onEditAccount={() => setEditOpen(true)}
         onOpenSpotlight={() => setSpotlightOpen(true)}
       />
