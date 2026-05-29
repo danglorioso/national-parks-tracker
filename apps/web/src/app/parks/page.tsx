@@ -281,7 +281,7 @@ function FilterSidebar({
     parks.forEach((p) => {
       (topicsMap[p.park_code] ?? []).forEach((t) => { freq[t] = (freq[t] ?? 0) + 1; });
     });
-    return Object.entries(freq).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name).slice(0, 35);
+    return Object.entries(freq).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name).slice(0, 55);
   }, [parks, topicsMap]);
 
   const rowStyle = (active: boolean): React.CSSProperties => ({
