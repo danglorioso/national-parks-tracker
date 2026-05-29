@@ -242,6 +242,7 @@ interface FilterSidebarProps {
   visits: Visit[];
   activitiesMap: Record<string, string[]>;
   topicsMap: Record<string, string[]>;
+  filtersLoading: boolean;
   statusFilter: StatusFilter;
   onStatusFilter: (s: StatusFilter) => void;
   stateFilter: string;
@@ -256,7 +257,7 @@ interface FilterSidebarProps {
 }
 
 function FilterSidebar({
-  parks, visits, activitiesMap, topicsMap,
+  parks, visits, activitiesMap, topicsMap, filtersLoading,
   statusFilter, onStatusFilter,
   stateFilter, onStateFilter,
   activityFilters, onActivityToggle, onClearActivities,
@@ -267,18 +268,12 @@ function FilterSidebar({
   const bucketCount = useMemo(() => parks.filter((p) => parkStatus(p.park_code, visits) === "bucketList").length, [parks, visits]);
   const notYetCount = parks.length - visitedCount - bucketCount;
 
-  const presentRegions = useMemo(() => {
-    const presentStates = new Set<string>();
-    parks.forEach((p) => p.states.split(",").forEach((s) => presentStates.add(s.trim())));
-    return REGIONS.filter((r) => r.states.some((s) => presentStates.has(s)));
-  }, [parks]);
-
   const allActivities = useMemo(() => {
     const freq: Record<string, number> = {};
     parks.forEach((p) => {
       (activitiesMap[p.park_code] ?? []).forEach((a) => { freq[a] = (freq[a] ?? 0) + 1; });
     });
-    return Object.entries(freq).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
+    return Object.entries(freq).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name).slice(0, 35);
   }, [parks, activitiesMap]);
 
   const allTopics = useMemo(() => {
@@ -286,7 +281,7 @@ function FilterSidebar({
     parks.forEach((p) => {
       (topicsMap[p.park_code] ?? []).forEach((t) => { freq[t] = (freq[t] ?? 0) + 1; });
     });
-    return Object.entries(freq).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
+    return Object.entries(freq).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name).slice(0, 35);
   }, [parks, topicsMap]);
 
   const rowStyle = (active: boolean): React.CSSProperties => ({
@@ -375,7 +370,7 @@ function FilterSidebar({
             All regions
           </span>
         </button>
-        {presentRegions.map((region) => (
+        {REGIONS.map((region) => (
           <button key={region.label} onClick={() => onStateFilter(region.label)} style={rowStyle(stateFilter === region.label)}>
             <span style={{ fontSize: 12.5, fontWeight: stateFilter === region.label ? 700 : 500, color: stateFilter === region.label ? "var(--primary)" : "var(--ink)" }}>
               {region.label}
@@ -387,54 +382,60 @@ function FilterSidebar({
       <div style={{ height: "0.5px", background: "var(--hairline)", margin: "0 16px 20px" }} />
 
       {/* Activities */}
-      {allActivities.length > 0 && (
-        <div style={{ padding: "0 16px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ ...sectionLabel, padding: 0 }}>Activities</span>
-            {activityFilters.length > 0 && (
-              <button onClick={onClearActivities} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: "var(--ink-mute)", fontFamily: "var(--font-mono)", fontWeight: 600, padding: 0 }}>
-                CLEAR
-              </button>
-            )}
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {allActivities.map((activity) => {
-              const active = activityFilters.includes(activity);
-              return (
-                <button key={activity} onClick={() => onActivityToggle(activity)} style={chipStyle(active)}>
-                  {activity}
-                </button>
-              );
-            })}
-          </div>
+      <div style={{ padding: "0 16px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ ...sectionLabel, padding: 0 }}>Activities</span>
+          {activityFilters.length > 0 && (
+            <button onClick={onClearActivities} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: "var(--ink-mute)", fontFamily: "var(--font-mono)", fontWeight: 600, padding: 0 }}>
+              CLEAR
+            </button>
+          )}
         </div>
-      )}
+        {filtersLoading ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {[52, 72, 60, 88, 48, 68].map((w, i) => (
+              <div key={i} style={{ height: 26, width: w, borderRadius: 100, background: "var(--surface-alt)", opacity: 0.7 }} />
+            ))}
+          </div>
+        ) : allActivities.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {allActivities.map((activity) => (
+              <button key={activity} onClick={() => onActivityToggle(activity)} style={chipStyle(activityFilters.includes(activity))}>
+                {activity}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       <div style={{ height: "0.5px", background: "var(--hairline)", margin: "0 16px 20px" }} />
 
       {/* Topics */}
-      {allTopics.length > 0 && (
-        <div style={{ padding: "0 16px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ ...sectionLabel, padding: 0 }}>Topics</span>
-            {topicFilters.length > 0 && (
-              <button onClick={onClearTopics} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: "var(--ink-mute)", fontFamily: "var(--font-mono)", fontWeight: 600, padding: 0 }}>
-                CLEAR
-              </button>
-            )}
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {allTopics.map((topic) => {
-              const active = topicFilters.includes(topic);
-              return (
-                <button key={topic} onClick={() => onTopicToggle(topic)} style={chipStyle(active)}>
-                  {topic}
-                </button>
-              );
-            })}
-          </div>
+      <div style={{ padding: "0 16px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ ...sectionLabel, padding: 0 }}>Topics</span>
+          {topicFilters.length > 0 && (
+            <button onClick={onClearTopics} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: "var(--ink-mute)", fontFamily: "var(--font-mono)", fontWeight: 600, padding: 0 }}>
+              CLEAR
+            </button>
+          )}
         </div>
-      )}
+        {filtersLoading ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {[64, 80, 56, 72, 48, 60].map((w, i) => (
+              <div key={i} style={{ height: 26, width: w, borderRadius: 100, background: "var(--surface-alt)", opacity: 0.7 }} />
+            ))}
+          </div>
+        ) : allTopics.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {allTopics.map((topic) => (
+              <button key={topic} onClick={() => onTopicToggle(topic)} style={chipStyle(topicFilters.includes(topic))}>
+                {topic}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </aside>
   );
 }
@@ -468,6 +469,8 @@ function ParksPageContent() {
   const [activitiesMap, setActivitiesMap] = useState<Record<string, string[]>>({});
   const [topicsMap, setTopicsMap] = useState<Record<string, string[]>>({});
   const [imagesMap, setImagesMap] = useState<Record<string, string>>({});
+  // Track whether the slow NPS-backed filters are still loading
+  const [filtersLoading, setFiltersLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [stateFilter, setStateFilter] = useState("all");
@@ -487,19 +490,27 @@ function ParksPageContent() {
 
   useEffect(() => {
     if (!isSignedIn) return;
+
+    // Parks + visits unblock the grid and status/region filters immediately
     Promise.all([
       fetch("/api/parks").then((r) => r.ok ? r.json() : []),
       fetch("/api/visits").then((r) => r.ok ? r.json() : []),
+    ]).then(([p, v]) => {
+      setParks(p);
+      setVisits(v);
+      setLoading(false);
+    });
+
+    // Activities, topics, images are slow (NPS API) — load lazily in background
+    Promise.all([
       fetch("/api/parks/activities").then((r) => r.ok ? r.json() : {}),
       fetch("/api/parks/topics").then((r) => r.ok ? r.json() : {}),
       fetch("/api/parks/images").then((r) => r.ok ? r.json() : {}),
-    ]).then(([p, v, a, t, img]) => {
-      setParks(p);
-      setVisits(v);
+    ]).then(([a, t, img]) => {
       setActivitiesMap(a);
       setTopicsMap(t);
       setImagesMap(img);
-      setLoading(false);
+      setFiltersLoading(false);
     });
   }, [isSignedIn]);
 
@@ -553,6 +564,7 @@ function ParksPageContent() {
           visits={visits}
           activitiesMap={activitiesMap}
           topicsMap={topicsMap}
+          filtersLoading={filtersLoading}
           statusFilter={statusFilter}
           onStatusFilter={setStatusFilter}
           stateFilter={stateFilter}
