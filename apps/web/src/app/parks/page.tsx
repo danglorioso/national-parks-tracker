@@ -242,6 +242,7 @@ interface FilterSidebarProps {
   visits: Visit[];
   activitiesMap: Record<string, string[]>;
   topicsMap: Record<string, string[]>;
+  loading: boolean;
   filtersLoading: boolean;
   statusFilter: StatusFilter;
   onStatusFilter: (s: StatusFilter) => void;
@@ -257,7 +258,7 @@ interface FilterSidebarProps {
 }
 
 function FilterSidebar({
-  parks, visits, activitiesMap, topicsMap, filtersLoading,
+  parks, visits, activitiesMap, topicsMap, loading, filtersLoading,
   statusFilter, onStatusFilter,
   stateFilter, onStateFilter,
   activityFilters, onActivityToggle, onClearActivities,
@@ -323,14 +324,17 @@ function FilterSidebar({
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "1.6px", color: "var(--ink-mute)", textTransform: "uppercase", fontWeight: 600 }}>
           Filters
         </span>
-        {(statusFilter !== "all" || stateFilter !== "all" || activityFilters.length > 0 || topicFilters.length > 0) && (
-          <button
-            onClick={onResetAll}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: "var(--primary)", fontFamily: "var(--font-mono)", fontWeight: 700, padding: 0, letterSpacing: "0.4px" }}
-          >
-            Reset
-          </button>
-        )}
+        <button
+          onClick={onResetAll}
+          style={{
+            background: "none", border: "none", cursor: "pointer", fontSize: 10,
+            fontFamily: "var(--font-mono)", fontWeight: 700, padding: 0, letterSpacing: "0.4px",
+            color: "var(--primary)",
+            visibility: (statusFilter !== "all" || stateFilter !== "all" || activityFilters.length > 0 || topicFilters.length > 0) ? "visible" : "hidden",
+          }}
+        >
+          Reset
+        </button>
       </div>
 
       {/* Status */}
@@ -355,7 +359,7 @@ function FilterSidebar({
                 {label}
               </span>
             </div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-mute)", fontWeight: 600 }}>{count}</span>
+            {!loading && <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-mute)", fontWeight: 600 }}>{count}</span>}
           </button>
         ))}
       </div>
@@ -564,6 +568,7 @@ function ParksPageContent() {
           visits={visits}
           activitiesMap={activitiesMap}
           topicsMap={topicsMap}
+          loading={loading}
           filtersLoading={filtersLoading}
           statusFilter={statusFilter}
           onStatusFilter={setStatusFilter}
@@ -584,7 +589,7 @@ function ParksPageContent() {
             {/* Header */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "1.6px", color: "var(--ink-mute)", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>
-                {parks.length} National Parks
+                <span style={{ visibility: loading ? "hidden" : "visible" }}>{parks.length} National Parks</span>
               </div>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
                 <div style={{ fontWeight: 900, fontSize: 30, color: "var(--ink)", letterSpacing: -0.8 }}>
