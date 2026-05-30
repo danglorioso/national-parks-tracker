@@ -17,6 +17,7 @@ export async function GET() {
         id: visits.id,
         park_code: visits.park_code,
         visited_date: visits.visited_date,
+        end_date: visits.end_date,
         is_bucket_list: visits.is_bucket_list,
         title: visits.title,
         notes: visits.notes,
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { park_code, is_bucket_list, visited_date, title, notes, photos, visibility } = body;
+    const { park_code, is_bucket_list, visited_date, end_date, title, notes, photos, visibility } = body;
 
     if (!park_code) {
       return NextResponse.json({ error: 'Park code is required' }, { status: 400 });
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
 
     const isBucketList = is_bucket_list === true;
     const visitDate = visited_date ? new Date(visited_date) : (isBucketList ? null : new Date());
+    const endDate = end_date ? new Date(end_date) : null;
     const visitVisibility = visibility || 'private';
 
     const existingVisit = await db
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
       if (isBucketList && !existing.is_bucket_list) {
         const updated = await db
           .update(visits)
-          .set({ is_bucket_list: true, visited_date: null as unknown as Date })
+          .set({ is_bucket_list: true, visited_date: null as unknown as Date, end_date: null as unknown as Date })
           .where(eq(visits.id, existing.id))
           .returning();
         return NextResponse.json({ message: 'Park added to bucket list', visit: updated[0] });
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
           .set({
             is_bucket_list: false,
             visited_date: visitDate as Date,
+            end_date: endDate as Date,
             title: title !== undefined ? title : existing.title,
             notes: notes !== undefined ? notes : existing.notes,
             photos: photos !== undefined ? photos : existing.photos,
@@ -96,6 +99,7 @@ export async function POST(request: Request) {
         clerk_user_id: userId,
         park_code,
         visited_date: visitDate as any,
+        end_date: endDate as Date | null,
         is_bucket_list: isBucketList,
         title: title || null,
         notes: notes || null,

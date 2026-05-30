@@ -29,6 +29,7 @@ interface ParkFromDB {
 export interface VisitEntry {
   id: number;
   visited_date: string;
+  end_date?: string | null;
   title?: string | null;
   notes?: string | null;
 }
@@ -41,6 +42,7 @@ interface ParkForMap {
   status: 'visited' | 'notVisited' | 'bucketList';
   description?: string;
   visitedDate?: string | null;
+  visitedEndDate?: string | null;
   title?: string | null;
   notes?: string | null;
   photos?: string[] | null;
@@ -89,7 +91,7 @@ export default function Home() {
       const visitedParkCodes: Set<string> = new Set();
       const bucketListParkCodes: Set<string> = new Set();
       const visitDatesMap: Record<string, string> = {};
-      const journalMap: Record<string, { title: string | null; notes: string | null; photos: string[] | null; visibility: string | null }> = {};
+      const journalMap: Record<string, { title: string | null; notes: string | null; photos: string[] | null; visibility: string | null; endDate: string | null }> = {};
       const visitsPerPark: Record<string, VisitEntry[]> = {};
 
       if (visitsResponse.ok) {
@@ -98,6 +100,7 @@ export default function Home() {
           park_code: string;
           is_bucket_list: boolean;
           visited_date: string | null;
+          end_date: string | null;
           title: string | null;
           notes: string | null;
           photos: string[] | null;
@@ -113,6 +116,7 @@ export default function Home() {
             visitsPerPark[visit.park_code].push({
               id: visit.id,
               visited_date: visit.visited_date,
+              end_date: visit.end_date,
               title: visit.title,
               notes: visit.notes,
             });
@@ -126,7 +130,13 @@ export default function Home() {
           visitDatesMap[parkCode] = latest.visited_date;
           const latestFull = visitsData.find(v => v.park_code === parkCode && v.id === latest.id);
           if (latestFull) {
-            journalMap[parkCode] = { title: latestFull.title, notes: latestFull.notes, photos: latestFull.photos, visibility: latestFull.visibility };
+            journalMap[parkCode] = {
+              title: latestFull.title,
+              notes: latestFull.notes,
+              photos: latestFull.photos,
+              visibility: latestFull.visibility,
+              endDate: latestFull.end_date,
+            };
           }
         }
 
@@ -141,6 +151,7 @@ export default function Home() {
           let status: 'visited' | 'notVisited' | 'bucketList' = 'notVisited';
           if (visitedParkCodes.has(park.park_code)) status = 'visited';
           else if (bucketListParkCodes.has(park.park_code)) status = 'bucketList';
+          const journal = journalMap[park.park_code];
           return {
             park_code: park.park_code,
             name: park.name,
@@ -149,8 +160,12 @@ export default function Home() {
             status,
             description: park.description || undefined,
             visitedDate: visitDatesMap[park.park_code] || null,
+            visitedEndDate: journal?.endDate ?? null,
             visits: visitsPerPark[park.park_code] ?? [],
-            ...(journalMap[park.park_code] ?? {}),
+            title: journal?.title ?? null,
+            notes: journal?.notes ?? null,
+            photos: journal?.photos ?? null,
+            visibility: journal?.visibility ?? null,
           };
         });
 
@@ -187,7 +202,7 @@ export default function Home() {
     }
   };
 
-  const handleConfirmVisitDate = async (date: Date, journal: JournalData) => {
+  const handleConfirmVisitDate = async (startDate: Date, endDate: Date | undefined, journal: JournalData) => {
     if (!pendingParkCode) return;
     const park = parks.find(p => p.park_code === pendingParkCode);
     const wasAlreadyVisited = park?.status === 'visited';
@@ -198,7 +213,8 @@ export default function Home() {
         body: JSON.stringify({
           park_code: pendingParkCode,
           is_bucket_list: false,
-          visited_date: date.toISOString(),
+          visited_date: startDate.toISOString(),
+          end_date: endDate?.toISOString() ?? null,
           title: journal.title,
           notes: journal.notes,
           photos: journal.photos,
@@ -244,14 +260,15 @@ export default function Home() {
     }
   };
 
-  const handleEditVisit = async (parkCode: string, date: Date, journal: JournalData) => {
+  const handleEditVisit = async (parkCode: string, startDate: Date, endDate: Date | undefined, journal: JournalData) => {
     const res = await fetch('/api/visits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         park_code: parkCode,
         is_bucket_list: false,
-        visited_date: date.toISOString(),
+        visited_date: startDate.toISOString(),
+        end_date: endDate?.toISOString() ?? null,
         title: journal.title,
         notes: journal.notes,
         photos: journal.photos,
@@ -393,12 +410,13 @@ export default function Home() {
             parkName={pendingEdit.name}
             existing={{
               visitedDate: pendingEdit.visitedDate ?? new Date().toISOString(),
+              endDate: pendingEdit.visitedEndDate,
               title: pendingEdit.title,
               notes: pendingEdit.notes,
               photos: pendingEdit.photos,
               visibility: pendingEdit.visibility,
             }}
-            onSave={(date, journal) => handleEditVisit(pendingEdit.park_code, date, journal)}
+            onSave={(startDate, endDate, journal) => handleEditVisit(pendingEdit.park_code, startDate, endDate, journal)}
             onDelete={async () => {
               await handleMarkNotVisited(pendingEdit.park_code);
               setPendingEdit(null);

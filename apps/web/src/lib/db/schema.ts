@@ -28,6 +28,7 @@ export const visits = pgTable('visits', {
   clerk_user_id: varchar('clerk_user_id', { length: 255 }).notNull(),
   park_code: varchar('park_code', { length: 10 }).notNull().references(() => parks.park_code),
   visited_date: timestamp('visited_date'), // null = bucket list item
+  end_date: timestamp('end_date'),         // null = single-day visit
   rating: integer('rating'),
   title: varchar('title', { length: 255 }),
   notes: text('notes'),

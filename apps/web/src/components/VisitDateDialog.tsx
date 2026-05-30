@@ -7,8 +7,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { UploadButton } from "@uploadthing/react";
 import type { OurFileRouter } from "@/lib/uploadthing";
-import { X, ChevronLeft, Lock, Users, Globe, MapPin } from "lucide-react";
-import { format } from "date-fns";
+import { X, ChevronLeft, Lock, Users, Globe, MapPin, CalendarRange } from "lucide-react";
+import { format, differenceInDays, isSameDay } from "date-fns";
+import { type DateRange } from "react-day-picker";
 
 export interface JournalData {
   title?: string;
@@ -21,7 +22,7 @@ interface VisitDateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   parkName: string;
-  onConfirm: (date: Date, journal: JournalData) => void;
+  onConfirm: (startDate: Date, endDate: Date | undefined, journal: JournalData) => void;
 }
 
 const VISIBILITY_OPTIONS: { value: JournalData['visibility']; label: string; description: string; icon: React.ElementType }[] = [
@@ -30,27 +31,45 @@ const VISIBILITY_OPTIONS: { value: JournalData['visibility']; label: string; des
   { value: 'public', label: 'Public', description: 'Everyone', icon: Globe },
 ];
 
+function formatDateRange(startDate: Date, endDate?: Date): string {
+  if (!endDate) return format(startDate, 'MMMM d, yyyy');
+  const days = differenceInDays(endDate, startDate) + 1;
+  if (startDate.getFullYear() === endDate.getFullYear()) {
+    if (startDate.getMonth() === endDate.getMonth()) {
+      return `${format(startDate, 'MMMM d')}–${format(endDate, 'd, yyyy')} · ${days} days`;
+    }
+    return `${format(startDate, 'MMM d')}–${format(endDate, 'MMM d, yyyy')} · ${days} days`;
+  }
+  return `${format(startDate, 'MMM d, yyyy')}–${format(endDate, 'MMM d, yyyy')} · ${days} days`;
+}
+
 export default function VisitDateDialog({ open, onOpenChange, parkName, onConfirm }: VisitDateDialogProps) {
   const [step, setStep] = useState<1 | 2>(1);
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: new Date(), to: undefined });
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [visibility, setVisibility] = useState<JournalData['visibility']>('public');
   const [dateError, setDateError] = useState("");
 
+  const today = new Date();
+  const startDate = dateRange?.from;
+  // Treat from===to as a single-day visit (no end date)
+  const endDate = dateRange?.to && startDate && !isSameDay(dateRange.to, startDate)
+    ? dateRange.to
+    : undefined;
+
   const handleNext = () => {
-    if (!date) { setDateError("Please select a date"); return; }
-    if (date > new Date()) { setDateError("Date cannot be in the future"); return; }
+    if (!startDate) { setDateError("Please select a visit date"); return; }
+    if (startDate > today) { setDateError("Start date cannot be in the future"); return; }
+    if (endDate && endDate > today) { setDateError("End date cannot be in the future"); return; }
     setDateError("");
     setStep(2);
   };
 
-  const handleBack = () => setStep(1);
-
   const handleSubmit = () => {
-    if (!date) return;
-    onConfirm(date, {
+    if (!startDate) return;
+    onConfirm(startDate, endDate, {
       title: title.trim() || undefined,
       notes: notes.trim() || undefined,
       photos: photos.length > 0 ? photos : undefined,
@@ -67,11 +86,11 @@ export default function VisitDateDialog({ open, onOpenChange, parkName, onConfir
 
   const resetForm = () => {
     setStep(1);
-    setDate(new Date());
+    setDateRange({ from: new Date(), to: undefined });
     setTitle("");
     setNotes("");
     setPhotos([]);
-    setVisibility('private');
+    setVisibility('public');
     setDateError("");
   };
 
@@ -81,37 +100,67 @@ export default function VisitDateDialog({ open, onOpenChange, parkName, onConfir
     <Dialog open={open} onOpenChange={handleCancel}>
       <DialogContent className="w-full max-w-sm">
 
+        {/* ── Header ── */}
         <DialogHeader>
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-visited shrink-0" />
             <DialogTitle className="text-base leading-snug">{parkName}</DialogTitle>
           </div>
-          <p className="text-xs text-ink-mute">{step === 1 ? 'When did you visit?' : 'Add a journal entry (optional)'}</p>
+          <p className="text-xs text-ink-mute">
+            {step === 1 ? 'When was your trip?' : 'Add a journal entry (optional)'}
+          </p>
           <div className="flex items-center gap-2 pt-1 pr-6">
             <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 1 ? 'bg-visited' : 'bg-surface-alt'}`} />
             <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 2 ? 'bg-visited' : 'bg-surface-alt'}`} />
           </div>
         </DialogHeader>
 
-        {/* ── Step 1: Date ── */}
+        {/* ── Step 1: Date range ── */}
         {step === 1 && (
           <>
-            <div className="flex justify-center py-1">
+            {/* Hint */}
+            <div className="flex items-center gap-1.5 text-[11px] text-ink-mute -mb-1">
+              <CalendarRange className="w-3.5 h-3.5 shrink-0" />
+              Click a start date, then an end date for multi-day trips.
+            </div>
+
+            {/* Calendar */}
+            <div className="flex justify-center">
               <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
                 captionLayout="dropdown"
                 fromYear={1950}
-                toYear={new Date().getFullYear()}
+                toYear={today.getFullYear()}
+                disabled={{ after: today }}
                 fixedWeeks
                 className="rounded-xl border border-hairline shadow-sm"
               />
             </div>
-            {dateError && <p className="text-sm text-red-600 -mt-1">{dateError}</p>}
+
+            {/* Selected range summary */}
+            {startDate && (
+              <div className="flex items-center gap-2 text-xs bg-surface-alt rounded-lg px-3 py-2">
+                <CalendarRange className="w-3.5 h-3.5 text-visited shrink-0" />
+                <span className="text-ink font-medium">
+                  {formatDateRange(startDate, endDate)}
+                </span>
+                {!endDate && (
+                  <span className="text-ink-mute ml-auto shrink-0">tap to add end date</span>
+                )}
+              </div>
+            )}
+
+            {dateError && <p className="text-xs text-red-600 -mt-1">{dateError}</p>}
+
             <DialogFooter>
               <Button variant="outline" onClick={handleCancel}>Cancel</Button>
-              <Button onClick={handleNext} className="bg-primary hover:bg-primary-deep text-primary-fg">
+              <Button
+                onClick={handleNext}
+                disabled={!startDate}
+                className="bg-primary hover:bg-primary-deep text-primary-fg"
+              >
                 Next →
               </Button>
             </DialogFooter>
@@ -121,10 +170,13 @@ export default function VisitDateDialog({ open, onOpenChange, parkName, onConfir
         {/* ── Step 2: Journal ── */}
         {step === 2 && (
           <>
-            <div className="flex items-center gap-2 text-xs text-ink-mute bg-surface-alt rounded-lg px-3 py-1.5 w-fit">
-              <MapPin className="w-3 h-3 text-visited" />
-              Visited {date ? format(date, 'MMMM d, yyyy') : ''}
-            </div>
+            {/* Date range breadcrumb */}
+            {startDate && (
+              <div className="flex items-center gap-2 text-xs text-ink-mute bg-surface-alt rounded-lg px-3 py-1.5 w-fit">
+                <CalendarRange className="w-3 h-3 text-visited shrink-0" />
+                {formatDateRange(startDate, endDate)}
+              </div>
+            )}
 
             <div className="space-y-4">
               <div className="space-y-1.5">
@@ -220,7 +272,8 @@ export default function VisitDateDialog({ open, onOpenChange, parkName, onConfir
             </div>
 
             <DialogFooter className="flex-row gap-2">
-              <Button variant="outline" onClick={handleBack} className="gap-1">
+              <Button variant="outline" onClick={handleCancel}>Cancel</Button>
+              <Button variant="outline" onClick={() => setStep(1)} className="gap-1">
                 <ChevronLeft className="w-4 h-4" /> Back
               </Button>
               <Button onClick={handleSubmit} className="flex-1 bg-primary hover:bg-primary-deep text-primary-fg">
