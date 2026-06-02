@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { ArrowRight, Check, ChevronLeft, ChevronRight, Eye, Globe, Lock, MapPin, Search, Star, Upload, Users, X } from "lucide-react";
+import { LightboxModal } from "@/components/LightboxModal";
 
 // ── Inline SVG icons matching the design reference exactly ────────────────
 
@@ -169,6 +170,122 @@ function fmtRange(start: Date | null, end: Date | null): string {
   const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
   if (sameMonth) return `${MONTHS[start.getMonth()]} ${start.getDate()} – ${end.getDate()}, ${end.getFullYear()}`;
   return `${MONTHS_ABBR[start.getMonth()]} ${start.getDate()} – ${MONTHS_ABBR[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+}
+
+// ── Draft persistence ──────────────────────────────────────────────────────
+
+const DRAFT_KEY = "pq-visit-drafts";
+const MAX_DRAFTS = 5;
+
+interface SavedDraft {
+  id: string;
+  savedAt: string;   // ISO
+  parkName?: string;
+  draft: VisitDraft;
+}
+
+function draftHasContent(d: VisitDraft): boolean {
+  return !!(d.parkCode || d.title || d.notes || d.highlight ||
+    d.activities.length || d.photos.length || d.rating || d.dates.start);
+}
+
+function loadDrafts(): SavedDraft[] {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as SavedDraft[];
+    // Rehydrate date objects
+    return parsed.map(sd => ({
+      ...sd,
+      draft: {
+        ...sd.draft,
+        dates: {
+          start: sd.draft.dates.start ? new Date(sd.draft.dates.start as unknown as string) : null,
+          end:   sd.draft.dates.end   ? new Date(sd.draft.dates.end   as unknown as string) : null,
+        },
+      },
+    }));
+  } catch { return []; }
+}
+
+function upsertDraft(d: VisitDraft, parkName: string | undefined, id: string): void {
+  const saved: SavedDraft = { id, savedAt: new Date().toISOString(), parkName, draft: d };
+  const rest = loadDrafts().filter(s => s.id !== id);
+  localStorage.setItem(DRAFT_KEY, JSON.stringify([saved, ...rest].slice(0, MAX_DRAFTS)));
+}
+
+function deleteDraft(id: string): void {
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(loadDrafts().filter(s => s.id !== id)));
+}
+
+function draftAge(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(ms / 60000);
+  const h = Math.floor(ms / 3600000);
+  const d = Math.floor(ms / 86400000);
+  if (m < 1)  return "just now";
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  if (d === 1) return "yesterday";
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// ── Draft selector screen ──────────────────────────────────────────────────
+
+function DraftSelector({ drafts, onRestore, onDelete, onStartFresh }: {
+  drafts: SavedDraft[];
+  onRestore: (sd: SavedDraft) => void;
+  onDelete: (id: string) => void;
+  onStartFresh: () => void;
+}) {
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px" }}>
+      <div style={{ marginBottom: 6, ...({ fontFamily: "var(--font-mono)", fontSize: 9.5, letterSpacing: 1.4, color: "var(--ink-mute)", textTransform: "uppercase", fontWeight: 600 } as React.CSSProperties) }}>
+        Saved drafts
+      </div>
+      <div style={{ fontWeight: 800, fontSize: 20, color: "var(--ink)", letterSpacing: -0.3, marginBottom: 20 }}>
+        Resume where you left off?
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+        {drafts.map(sd => {
+          const d = sd.draft;
+          const chips: string[] = [];
+          if (d.rating) chips.push(`${d.rating}★`);
+          if (d.activities.length) chips.push(`${d.activities.length} activit${d.activities.length > 1 ? "ies" : "y"}`);
+          if (d.photos.length) chips.push(`${d.photos.length} photo${d.photos.length > 1 ? "s" : ""}`);
+          return (
+            <div key={sd.id} style={{ background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {sd.parkName ?? "No park selected"}
+                  {d.title && <span style={{ fontWeight: 400, color: "var(--ink-mute)", marginLeft: 6 }}>— {d.title}</span>}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11.5, color: "var(--ink-mute)" }}>{draftAge(sd.savedAt)}</span>
+                  {chips.map(c => (
+                    <span key={c} style={{ fontSize: 11, color: "var(--ink-mute)", background: "var(--surface-alt)", padding: "2px 7px", borderRadius: 100 }}>{c}</span>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button onClick={() => onDelete(sd.id)} style={{ padding: "7px 12px", borderRadius: 8, border: "0.5px solid var(--hairline)", background: "transparent", cursor: "pointer", fontSize: 12, color: "var(--ink-mute)", fontFamily: "inherit" }}>
+                  Delete
+                </button>
+                <button onClick={() => onRestore(sd)} style={{ padding: "7px 14px", borderRadius: 8, border: 0, background: "var(--primary)", color: "#FFFBF1", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit" }}>
+                  Resume
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <button onClick={onStartFresh} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "0.5px solid var(--hairline)", background: "var(--surface)", color: "var(--ink-soft)", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>
+        Start a new entry
+      </button>
+    </div>
+  );
 }
 
 function makeBlankDraft(): VisitDraft {
@@ -791,6 +908,7 @@ function PhotoUploader({ photos, cover, onAddPhotos, onRemove, onSetCover }: {
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -798,16 +916,19 @@ function PhotoUploader({ photos, cover, onAddPhotos, onRemove, onSetCover }: {
     const urls: string[] = [];
     for (const file of Array.from(files).slice(0, 10 - photos.length)) {
       try {
-        const form = new FormData();
-        form.append("file", file);
-        const res = await fetch("/api/uploadthing", { method: "POST", body: form });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.url) urls.push(data.url);
-        } else {
-          // fallback: use object URL for preview
-          urls.push(URL.createObjectURL(file));
-        }
+        const presignRes = await fetch("/api/upload/presign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
+        });
+        if (!presignRes.ok) { urls.push(URL.createObjectURL(file)); continue; }
+        const { uploadUrl, publicUrl } = await presignRes.json();
+        const uploadRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        urls.push(uploadRes.ok ? publicUrl : URL.createObjectURL(file));
       } catch {
         urls.push(URL.createObjectURL(file));
       }
@@ -827,7 +948,7 @@ function PhotoUploader({ photos, cover, onAddPhotos, onRemove, onSetCover }: {
               return (
                 <div key={url} style={{ position: "relative", flexShrink: 0 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="" style={{ width: 76, height: 76, borderRadius: 11, objectFit: "cover", display: "block" }} />
+                  <img src={url} alt="" onClick={() => setLightboxIdx(idx)} style={{ width: 76, height: 76, borderRadius: 11, objectFit: "cover", display: "block", cursor: "zoom-in" }} />
                   <button onClick={() => onSetCover(url)} style={{ position: "absolute", top: 5, left: 5, width: 22, height: 22, borderRadius: "50%", background: isCover ? "var(--accent)" : "rgba(255,251,241,0.85)", border: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>
                     <Star style={{ width: 12, height: 12, color: isCover ? "#FFFBF1" : "var(--ink-soft)", fill: isCover ? "#FFFBF1" : "none" }} strokeWidth={2} />
                   </button>
@@ -841,6 +962,14 @@ function PhotoUploader({ photos, cover, onAddPhotos, onRemove, onSetCover }: {
             })}
           </div>
         </div>
+      )}
+
+      {lightboxIdx !== null && (
+        <LightboxModal
+          images={photos.map(url => ({ url }))}
+          startIndex={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+        />
       )}
 
       {photos.length < 10 && (
@@ -857,7 +986,7 @@ function PhotoUploader({ photos, cover, onAddPhotos, onRemove, onSetCover }: {
             {uploading ? "Uploading…" : <>Drop photos or <span style={{ color: "var(--primary)" }}>browse</span></>}
           </div>
           <div style={{ ...mono, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6 }}>
-            JPG · HEIC · up to {10 - photos.length} more
+            JPG · PNG · HEIC · up to {10 - photos.length} more
           </div>
           <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => handleFiles(e.target.files)} />
         </div>
@@ -1139,7 +1268,15 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
   const [showParkPicker, setShowParkPicker] = useState(false);
   const [submitting, setSubmitting]           = useState(false);
   const [npsActivityCache, setNpsActivityCache] = useState<{ parkCode: string; names: string[] } | null>(null);
+  const [showExitConfirm, setShowExitConfirm]   = useState(false);
+  const [restoreBannerDraft, setRestoreBannerDraft] = useState<SavedDraft | null>(
+    () => { const d = loadDrafts(); return d.length > 0 ? d[0] : null; }
+  );
+  const draftId   = useRef<string>("");
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const centerRef = useRef<HTMLDivElement>(null);
+  // Assign a fresh draft ID at the start of each session (reset in handleClose)
+  if (!draftId.current) draftId.current = `draft-${Date.now()}`;
 
   const goToStep = useCallback((i: number) => {
     setStep(i);
@@ -1154,7 +1291,6 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
     if (!open) return;
     fetch("/api/parks").then(r => r.ok ? r.json() : []).then(setParks).catch(() => {});
   }, [open]);
-
 
   useEffect(() => {
     if (!draft.parkCode) return;
@@ -1195,15 +1331,27 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
     setDraft(makeBlankDraft());
     setStep(0);
     setVisited(new Set([0]));
+    setShowExitConfirm(false);
+    draftId.current = "";
+    const nextDrafts = loadDrafts();
+    setRestoreBannerDraft(nextDrafts.length > 0 ? nextDrafts[0] : null);
     onClose();
   }, [onClose]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, handleClose]);
+  const handleRequestClose = useCallback(() => {
+    if (draftHasContent(draft)) {
+      setShowExitConfirm(true);
+    } else {
+      handleClose();
+    }
+  }, [draft, handleClose]);
+
+  const handleSaveAsDraft = useCallback(() => {
+    const parkName = parks.find(p => p.park_code === draft.parkCode)?.name;
+    upsertDraft(draft, parkName, draftId.current);
+    handleClose();
+  }, [draft, parks, handleClose]);
+
 
   const handleSubmit = async () => {
     if (!draft.parkCode || !draft.dates.start) return;
@@ -1243,13 +1391,13 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
   };
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div onClick={handleRequestClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <style>{`
         @keyframes pqLogIn { from { transform: scale(0.96); opacity: 0 } to { transform: scale(1); opacity: 1 } }
         .pq-stepnav:hover { background: rgba(31,61,46,0.05) !important; }
       `}</style>
 
-      <div onClick={e => e.stopPropagation()} style={{ width: 1120, height: 724, background: "var(--bg)", borderRadius: 18, border: "0.5px solid var(--hairline)", boxShadow: "0 24px 60px rgba(0,0,0,0.4)", display: "flex", overflow: "hidden", animation: "pqLogIn 220ms cubic-bezier(.2,.7,.3,1)", fontFamily: "inherit" }}>
+      <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: 1120, height: 724, background: "var(--bg)", borderRadius: 18, border: "0.5px solid var(--hairline)", boxShadow: "0 24px 60px rgba(0,0,0,0.4)", display: "flex", overflow: "hidden", animation: "pqLogIn 220ms cubic-bezier(.2,.7,.3,1)", fontFamily: "inherit" }}>
 
         {/* ── Left: step nav ─────────────────────────────── */}
         <div style={{ width: 248, flexShrink: 0, background: "rgba(245,239,224,0.5)", borderRight: "0.5px solid var(--hairline)", padding: "22px 16px", display: "flex", flexDirection: "column" }}>
@@ -1260,8 +1408,7 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
             {STEPS.map((s, i) => {
               const active = step === i;
               const done   = !active && isStepDone(i);
-              const canGoForward = i > step ? canContinue : true;
-              const reachable = (i <= step || i === step + 1) && canGoForward;
+              const reachable = visited.has(i) || (i === step + 1 && canContinue);
               return (
                 <button key={s.key} className="pq-stepnav"
                   onClick={() => { if (reachable) goToStep(i); }}
@@ -1289,12 +1436,28 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
               <Kicker>STEP {STEPS[step].no} OF 04</Kicker>
               <div style={{ fontWeight: 800, fontSize: 20, color: "var(--ink)", letterSpacing: -0.3, marginTop: 2 }}>{STEPS[step].label}</div>
             </div>
-            <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--surface)", border: "0.5px solid var(--hairline)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button onClick={handleRequestClose} style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--surface)", border: "0.5px solid var(--hairline)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <X style={{ width: 17, height: 17, color: "var(--ink-soft)" }} strokeWidth={2.4} />
             </button>
           </div>
 
           <div ref={centerRef} style={{ flex: 1, overflowY: "auto", padding: "20px 28px 24px" }}>
+            {restoreBannerDraft && (
+              <div style={{ background: "rgba(31,61,46,0.07)", border: "0.5px solid rgba(31,61,46,0.18)", borderRadius: 12, padding: "11px 14px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)" }}>You have a saved draft</div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-mute)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {restoreBannerDraft.parkName ?? "No park selected"}{restoreBannerDraft.draft.title ? ` — ${restoreBannerDraft.draft.title}` : ""} · {draftAge(restoreBannerDraft.savedAt)}
+                  </div>
+                </div>
+                <button onClick={() => { setDraft(restoreBannerDraft.draft); draftId.current = restoreBannerDraft.id; setRestoreBannerDraft(null); }} style={{ padding: "7px 14px", borderRadius: 8, border: 0, background: "var(--primary)", color: "#FFFBF1", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                  Restore
+                </button>
+                <button onClick={() => setRestoreBannerDraft(null)} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--ink-mute)", lineHeight: 0, padding: 4, flexShrink: 0 }}>
+                  <X style={{ width: 14, height: 14 }} strokeWidth={2.4} />
+                </button>
+              </div>
+            )}
             {renderStep(STEPS[step].key)}
           </div>
 
@@ -1334,6 +1497,26 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
 
         {showParkPicker && (
           <ParkPickerDialog parks={parks} value={draft.parkCode} onClose={() => setShowParkPicker(false)} onPick={code => { set("parkCode", code); setShowParkPicker(false); }} />
+        )}
+
+        {showExitConfirm && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 130, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ background: "var(--bg)", borderRadius: 16, padding: "28px", width: 360, border: "0.5px solid var(--hairline)", boxShadow: "0 16px 40px rgba(0,0,0,0.35)" }}>
+              <div style={{ fontWeight: 800, fontSize: 18, color: "var(--ink)", letterSpacing: -0.3, marginBottom: 6 }}>Leave without saving?</div>
+              <div style={{ fontSize: 13, color: "var(--ink-mute)", lineHeight: 1.5, marginBottom: 22 }}>Your changes haven&apos;t been posted yet. Save a draft to come back to them later.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <button onClick={handleSaveAsDraft} style={{ padding: "12px", borderRadius: 10, border: 0, background: "var(--primary)", color: "#FFFBF1", fontWeight: 800, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" }}>
+                  Save as draft
+                </button>
+                <button onClick={() => { setShowExitConfirm(false); handleClose(); }} style={{ padding: "12px", borderRadius: 10, border: "0.5px solid var(--hairline)", background: "transparent", color: "var(--ink)", fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" }}>
+                  Discard changes
+                </button>
+                <button onClick={() => setShowExitConfirm(false)} style={{ padding: "9px", borderRadius: 10, border: 0, background: "transparent", color: "var(--ink-mute)", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                  Keep editing
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
