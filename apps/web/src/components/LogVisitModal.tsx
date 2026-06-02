@@ -46,7 +46,7 @@ function Ic({ n, size = 22, sw = 1.8, stroke = "currentColor" }: { n: IconName; 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface DateRange { start: Date | null; end: Date | null; }
-interface WeatherState { cond: string | null; temp: number; }
+interface WeatherState { conds: string[]; }
 interface CompanionState { type: string | null; tagged: string[]; }
 
 interface VisitDraft {
@@ -156,7 +156,7 @@ function makeBlankDraft(): VisitDraft {
   return {
     parkCode: "", dates: { start: null, end: null }, title: "",
     rating: 0, crowd: 0, difficulty: 0,
-    weather: { cond: null, temp: 62 }, activities: [],
+    weather: { conds: [] }, activities: [],
     companions: { type: null, tagged: [] }, wouldReturn: null,
     highlight: "", notes: "", photos: [], cover: null, visibility: "Friends",
   };
@@ -262,12 +262,44 @@ function ParkHeroRow({ park, onChangePark }: { park: ParkData | undefined; onCha
 
   const imgUrl = park ? fetchedImg : null;
 
+  // ── No park selected: prominent search-style button ──
+  if (!park) {
+    return (
+      <button
+        onClick={onChangePark}
+        style={{
+          width: "100%", border: "2px dashed var(--hairline)", borderRadius: 16,
+          background: "var(--surface-alt)", cursor: "pointer", padding: "20px 18px",
+          display: "flex", alignItems: "center", gap: 14, fontFamily: "inherit",
+          transition: "border-color 150ms, background-color 150ms",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--primary)";
+          (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--surface)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "";
+          (e.currentTarget as HTMLButtonElement).style.backgroundColor = "";
+        }}
+      >
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Search style={{ width: 20, height: 20, color: "#FFFBF1" }} strokeWidth={2.2} />
+        </div>
+        <div style={{ textAlign: "left" }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: "var(--ink)", letterSpacing: -0.2 }}>Search for a park</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-mute)", marginTop: 2 }}>Choose from all 63 US national parks</div>
+        </div>
+      </button>
+    );
+  }
+
+  // ── Park selected: photo banner ──
   return (
     <button onClick={onChangePark} style={{ width: "100%", padding: 0, border: 0, background: "transparent", cursor: "pointer", display: "block" }}>
       <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", height: 92 }}>
         {imgUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imgUrl} alt={park?.name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+          <img src={imgUrl} alt={park.name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, var(--primary), var(--accent))" }} />
         )}
@@ -275,8 +307,8 @@ function ParkHeroRow({ park, onChangePark }: { park: ParkData | undefined; onCha
         <div style={{ position: "absolute", inset: 0, padding: "0 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ textAlign: "left", color: "#FFFBF1" }}>
             <div style={{ ...mono, fontSize: 9, letterSpacing: 1.4, opacity: 0.85, fontWeight: 600 }}>NATIONAL PARK</div>
-            <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: -0.4, lineHeight: 1.05, marginTop: 2 }}>{park ? park.name : "Pick a park"}</div>
-            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 1 }}>{park ? fullStateName(park.states) : "Click to choose"}</div>
+            <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: -0.4, lineHeight: 1.05, marginTop: 2 }}>{park.name}</div>
+            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 1 }}>{fullStateName(park.states)}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(255,251,241,0.92)", color: "#1B1A16", padding: "6px 11px", borderRadius: 100, fontWeight: 700, fontSize: 12 }}>
             <Ic n="edit" size={13} sw={2.2} stroke="#1B1A16" /> Change
@@ -390,7 +422,7 @@ function DateRangeCalendar({ value, onChange }: { value: DateRange; onChange: (v
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-        {quickChip("Just today", () => ({ start: today, end: null }))}
+        {quickChip("Today", () => ({ start: today, end: null }))}
         {quickChip("This weekend", () => {
           const sat = new Date(today); sat.setDate(today.getDate() + (6 - today.getDay()));
           const sun = new Date(sat); sun.setDate(sat.getDate() + 1);
@@ -507,36 +539,31 @@ function RatingRow({ iconName, label, children, last = false }: { iconName: Icon
 // ── Weather picker ─────────────────────────────────────────────────────────
 
 function WeatherPicker({ value, onChange }: { value: WeatherState; onChange: (v: WeatherState) => void }) {
+  const toggle = (id: string) => {
+    const next = value.conds.includes(id)
+      ? value.conds.filter(c => c !== id)
+      : [...value.conds, id];
+    onChange({ conds: next });
+  };
   return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
-        {WEATHER_OPTS.map(w => {
-          const on = value.cond === w.id;
-          return (
-            <button key={w.id} onClick={() => onChange({ ...value, cond: on ? null : w.id })} style={{
-              padding: "11px 4px 9px", borderRadius: 13, cursor: "pointer",
-              background: on ? "var(--primary)" : "var(--surface-alt)",
-              border: `0.5px solid ${on ? "var(--primary)" : "var(--hairline)"}`,
-              color: on ? "#FFFBF1" : "var(--ink-soft)",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
-              fontWeight: on ? 700 : 600, fontSize: 11, fontFamily: "inherit",
-              transition: "all 120ms",
-            }}>
-              <Ic n={w.icon} size={22} sw={1.9} stroke={on ? "#FFFBF1" : "var(--ink-soft)"} />
-              {w.label}
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12 }}>
-        <Ic n="thermo" size={18} sw={2} stroke="var(--ink-mute)" />
-        <input type="range" min={-10} max={110} step={1} value={value.temp}
-          onChange={e => onChange({ ...value, temp: Number(e.target.value) })}
-          style={{ flex: 1, accentColor: "var(--accent)", height: 4, cursor: "pointer" }} />
-        <div style={{ fontWeight: 800, fontSize: 18, color: "var(--ink)", minWidth: 54, textAlign: "right", letterSpacing: -0.4 }}>
-          {value.temp}°<span style={{ fontSize: 12, color: "var(--ink-mute)" }}>F</span>
-        </div>
-      </div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
+      {WEATHER_OPTS.map(w => {
+        const on = value.conds.includes(w.id);
+        return (
+          <button key={w.id} onClick={() => toggle(w.id)} style={{
+            padding: "11px 4px 9px", borderRadius: 13, cursor: "pointer",
+            background: on ? "var(--primary)" : "var(--surface-alt)",
+            border: `0.5px solid ${on ? "var(--primary)" : "var(--hairline)"}`,
+            color: on ? "#FFFBF1" : "var(--ink-soft)",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+            fontWeight: on ? 700 : 600, fontSize: 11, fontFamily: "inherit",
+            transition: "all 120ms",
+          }}>
+            <Ic n={w.icon} size={22} sw={1.9} stroke={on ? "#FFFBF1" : "var(--ink-soft)"} />
+            {w.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -770,7 +797,7 @@ function VisitPreview({ draft, park, userName, avatarUrl }: {
   draft: VisitDraft; park: ParkData | undefined; userName: string; avatarUrl: string;
 }) {
   const VisIcon = draft.visibility === "Private" ? Lock : draft.visibility === "Public" ? Globe : Users;
-  const weatherOpt = WEATHER_OPTS.find(w => w.id === draft.weather.cond);
+  const selectedWeather = WEATHER_OPTS.filter(w => draft.weather.conds.includes(w.id));
   const days = dayCount(draft.dates.start, draft.dates.end);
 
   return (
@@ -837,7 +864,7 @@ function VisitPreview({ draft, park, userName, avatarUrl }: {
         {draft.title  && <div style={{ fontWeight: 800, fontSize: 17, color: "var(--ink)", letterSpacing: -0.3, lineHeight: 1.15, marginBottom: 5 }}>{draft.title}</div>}
         {draft.notes  && <div style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5 }}>{draft.notes.length > 160 ? draft.notes.slice(0, 160) + "…" : draft.notes}</div>}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 10 }}>
-          {weatherOpt && <PreviewChip icon={weatherOpt.icon}>{weatherOpt.label} · {draft.weather.temp}°</PreviewChip>}
+          {selectedWeather.map(w => <PreviewChip key={w.id} icon={w.icon}>{w.label}</PreviewChip>)}
           {draft.crowd > 0 && <PreviewChip icon="crowd">{CROWD_LABELS[draft.crowd - 1]}</PreviewChip>}
           {draft.difficulty > 0 && <PreviewChip icon="trail">{DIFF_LABELS[draft.difficulty - 1]}</PreviewChip>}
           {draft.activities.slice(0, 3).map(a => <PreviewChip key={a} icon="pin">{a}</PreviewChip>)}
@@ -851,34 +878,44 @@ function VisitPreview({ draft, park, userName, avatarUrl }: {
 
 function StepWhere({ draft, set, onOpenPark, park }: { draft: VisitDraft; set: SetFn; onOpenPark: () => void; park: ParkData | undefined }) {
   const days = dayCount(draft.dates.start, draft.dates.end);
+  const hasPark = !!draft.parkCode;
+  const lockedStyle: React.CSSProperties = {
+    opacity: 0.38,
+    pointerEvents: "none",
+    transition: "opacity 200ms",
+  };
+  const unlockedStyle: React.CSSProperties = { transition: "opacity 200ms" };
+
   return (
     <>
       <Section mb={18}>
         <ParkHeroRow park={park} onChangePark={onOpenPark} />
       </Section>
-      <Section kicker="TITLE" title="Name this visit" hint="" mb={18}>
-        <div>
-          <input value={draft.title} onChange={e => set("title", e.target.value.slice(0, 80))} placeholder="e.g. Sunrise on Cadillac Mountain"
-            style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 14px", fontSize: 15, color: "var(--ink)", outline: "none", fontWeight: 600, boxSizing: "border-box", fontFamily: "inherit" }} />
-          <div style={{ ...mono, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6, marginTop: 5, textAlign: "right" }}>{draft.title.length} / 80</div>
-        </div>
-      </Section>
-      <Section kicker="WHEN" title="Dates" hint="Single day or a multi-day trip — tap a start and end.">
-        <Card pad={14}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingBottom: 12, borderBottom: "0.5px solid var(--hairline-soft)" }}>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 16, color: "var(--ink)", letterSpacing: -0.3 }}>{fmtRange(draft.dates.start, draft.dates.end)}</div>
-              <div style={{ ...mono, fontSize: 10, letterSpacing: 0.6, color: "var(--ink-mute)", marginTop: 2 }}>
-                {draft.dates.start ? `${days} DAY${days > 1 ? "S" : ""}` : "NO DATES YET"}
+      <div style={hasPark ? unlockedStyle : lockedStyle}>
+        <Section kicker="TITLE" title="Name this visit" hint="A line you'll recognize it by later." mb={18}>
+          <div>
+            <input value={draft.title} onChange={e => set("title", e.target.value.slice(0, 80))} placeholder="e.g. Sunrise on Cadillac Mountain"
+              style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 14px", fontSize: 15, color: "var(--ink)", outline: "none", fontWeight: 600, boxSizing: "border-box", fontFamily: "inherit" }} />
+            <div style={{ ...mono, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6, marginTop: 5, textAlign: "right" }}>{draft.title.length} / 80</div>
+          </div>
+        </Section>
+        <Section kicker="WHEN" title="Dates" hint="Single day or a multi-day trip — tap a start and end.">
+          <Card pad={14}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingBottom: 12, borderBottom: "0.5px solid var(--hairline-soft)" }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: "var(--ink)", letterSpacing: -0.3 }}>{fmtRange(draft.dates.start, draft.dates.end)}</div>
+                <div style={{ ...mono, fontSize: 10, letterSpacing: 0.6, color: "var(--ink-mute)", marginTop: 2 }}>
+                  {draft.dates.start ? `${days} DAY${days > 1 ? "S" : ""}` : "NO DATES YET"}
+                </div>
+              </div>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: "var(--primary)", color: "#FFFBF1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Ic n="calendar" size={20} sw={2} stroke="#FFFBF1" />
               </div>
             </div>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: "var(--primary)", color: "#FFFBF1", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Ic n="calendar" size={20} sw={2} stroke="#FFFBF1" />
-            </div>
-          </div>
-          <DateRangeCalendar value={draft.dates} onChange={v => set("dates", v)} />
-        </Card>
-      </Section>
+            <DateRangeCalendar value={draft.dates} onChange={v => set("dates", v)} />
+          </Card>
+        </Section>
+      </div>
     </>
   );
 }
@@ -971,10 +1008,16 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
   const { user } = useUser();
   const [draft, setDraft]               = useState<VisitDraft>(makeBlankDraft);
   const [step, setStep]                 = useState(0);
+  const [visited, setVisited]           = useState<Set<number>>(new Set([0]));
   const [parks, setParks]               = useState<ParkData[]>([]);
   const [showParkPicker, setShowParkPicker] = useState(false);
   const [submitting, setSubmitting]     = useState(false);
   const centerRef = useRef<HTMLDivElement>(null);
+
+  const goToStep = useCallback((i: number) => {
+    setStep(i);
+    setVisited(v => new Set([...v, i]));
+  }, []);
 
   const set = useCallback(<K extends keyof VisitDraft>(k: K, v: VisitDraft[K]) => {
     setDraft(d => ({ ...d, [k]: v }));
@@ -993,11 +1036,19 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
   const userName    = user?.fullName ?? user?.username ?? "Explorer";
   const avatarUrl   = user?.imageUrl ?? "";
   const last        = step === STEPS.length - 1;
-  const canContinue = step === 0 ? !!draft.dates.start : true;
+  const stepComplete = (i: number) => {
+    if (i === 0) return !!draft.parkCode && !!draft.dates.start;
+    return true;
+  };
+  const canContinue = stepComplete(step);
+
+  // Green check: visited AND required fields met (reuses stepComplete).
+  const isStepDone = (i: number) => visited.has(i) && stepComplete(i);
 
   const handleClose = useCallback(() => {
     setDraft(makeBlankDraft());
     setStep(0);
+    setVisited(new Set([0]));
     onClose();
   }, [onClose]);
 
@@ -1054,11 +1105,13 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {STEPS.map((s, i) => {
               const active = step === i;
-              const done   = i < step;
+              const done   = !active && isStepDone(i);
+              const canGoForward = i > step ? canContinue : true;
+              const reachable = (i <= step || i === step + 1) && canGoForward;
               return (
                 <button key={s.key} className="pq-stepnav"
-                  onClick={() => { if (i <= step || i === step + 1) setStep(i); }}
-                  style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 11px", borderRadius: 11, cursor: i <= step + 1 ? "pointer" : "default", background: active ? "var(--surface)" : "transparent", border: `0.5px solid ${active ? "var(--hairline)" : "transparent"}`, textAlign: "left", transition: "background 120ms", fontFamily: "inherit" }}
+                  onClick={() => { if (reachable) goToStep(i); }}
+                  style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 11px", borderRadius: 11, cursor: reachable ? "pointer" : "default", background: active ? "var(--surface)" : "transparent", border: `0.5px solid ${active ? "var(--hairline)" : "transparent"}`, textAlign: "left", transition: "background 120ms", fontFamily: "inherit" }}
                 >
                   <div style={{ width: 30, height: 30, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: active ? "var(--primary)" : done ? "var(--visited)" : "var(--surface-alt)", color: (active || done) ? "#FFFBF1" : "var(--ink-mute)", ...mono, fontSize: 11, fontWeight: 700 }}>
                     {done ? <Check style={{ width: 15, height: 15 }} strokeWidth={2.6} /> : s.no}
@@ -1093,7 +1146,7 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
 
           <div style={{ padding: "14px 28px", borderTop: "0.5px solid var(--hairline-soft)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             {step > 0 ? (
-              <button onClick={() => setStep(step - 1)} style={{ padding: "10px 18px", borderRadius: 10, border: "0.5px solid var(--hairline)", background: "var(--surface)", color: "var(--ink)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}>
+              <button onClick={() => goToStep(step - 1)} style={{ padding: "10px 18px", borderRadius: 10, border: "0.5px solid var(--hairline)", background: "var(--surface)", color: "var(--ink)", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}>
                 <ChevronLeft style={{ width: 15, height: 15 }} strokeWidth={2.4} /> Back
               </button>
             ) : (
@@ -1102,7 +1155,7 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
             <div style={{ display: "flex", gap: 5 }}>
               {STEPS.map((_, i) => <div key={i} style={{ width: i === step ? 20 : 6, height: 6, borderRadius: 3, background: i <= step ? "var(--primary)" : "var(--hairline)", transition: "all 200ms" }} />)}
             </div>
-            <button onClick={() => { if (last) handleSubmit(); else if (canContinue) setStep(step + 1); }} disabled={!canContinue || submitting}
+            <button onClick={() => { if (last) handleSubmit(); else if (canContinue) goToStep(step + 1); }} disabled={!canContinue || submitting}
               style={{ padding: "11px 20px", borderRadius: 10, border: 0, background: canContinue ? "var(--primary)" : "var(--surface-alt)", color: canContinue ? "#FFFBF1" : "var(--ink-mute)", fontWeight: 800, fontSize: 13, cursor: canContinue && !submitting ? "pointer" : "default", display: "flex", alignItems: "center", gap: 7, fontFamily: "inherit", boxShadow: canContinue ? "0 4px 12px rgba(31,61,46,0.35)" : "none", opacity: submitting ? 0.7 : 1 }}>
               {last
                 ? <><Check style={{ width: 15, height: 15 }} strokeWidth={2.6} /> {submitting ? "Posting…" : "Post entry"}</>
