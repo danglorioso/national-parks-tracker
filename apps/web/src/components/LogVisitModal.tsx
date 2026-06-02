@@ -321,17 +321,12 @@ function ParkHeroRow({ park, onChangePark }: { park: ParkData | undefined; onCha
 
 // ── Date range calendar ────────────────────────────────────────────────────
 
-type CalMode = "calendar" | "year" | "month";
-
 function DateRangeCalendar({ value, onChange }: { value: DateRange; onChange: (v: DateRange) => void }) {
   const today = new Date();
   const [view, setView] = useState(() => {
     const d = value.start || today;
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
-  const [mode, setMode] = useState<CalMode>("calendar");
-  const [yearAnchor, setYearAnchor] = useState(view.getFullYear());
-
   const pick = useCallback((d: Date) => {
     const { start, end } = value;
     if (!start || (start && end)) { onChange({ start: d, end: null }); return; }
@@ -339,142 +334,118 @@ function DateRangeCalendar({ value, onChange }: { value: DateRange; onChange: (v
     onChange({ start, end: d });
   }, [value, onChange]);
 
-  const navBtn: React.CSSProperties = { width: 30, height: 30, borderRadius: 9, cursor: "pointer", background: "var(--surface-alt)", border: "0.5px solid var(--hairline)", display: "flex", alignItems: "center", justifyContent: "center" };
+  const navBtn: React.CSSProperties = { width: 26, height: 26, borderRadius: 7, cursor: "pointer", background: "var(--surface-alt)", border: "0.5px solid var(--hairline)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
   const rangeBg = "rgba(31,61,46,0.13)";
 
-  const quickChip = (label: string, build: () => DateRange) => (
-    <button key={label} onClick={() => onChange(build())} style={{ background: "var(--surface-alt)", border: "0.5px solid var(--hairline)", color: "var(--ink-soft)", borderRadius: 100, padding: "6px 11px", cursor: "pointer", fontWeight: 600, fontSize: 11.5, whiteSpace: "nowrap", fontFamily: "inherit" }}>
-      {label}
-    </button>
-  );
-
-  const gridBtn = (label: string | number, active: boolean, disabled: boolean, onClick: () => void) => (
-    <button key={label} onClick={() => { if (!disabled) onClick(); }} style={{
-      padding: "9px 4px", borderRadius: 10, cursor: disabled ? "default" : "pointer",
-      background: active ? "var(--primary)" : "var(--surface-alt)",
-      border: `0.5px solid ${active ? "var(--primary)" : "var(--hairline)"}`,
-      color: active ? "#FFFBF1" : disabled ? "var(--ink-mute)" : "var(--ink)",
-      fontWeight: active ? 800 : 500, fontSize: 13, fontFamily: "inherit",
-      opacity: disabled ? 0.35 : 1,
-    }}>{label}</button>
-  );
-
-  // ── year grid ──
-  if (mode === "year") {
-    const WINDOW = 16;
-    const startYear = yearAnchor - Math.floor(WINDOW / 2);
-    const years = Array.from({ length: WINDOW }, (_, i) => startYear + i);
-    return (
-      <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <button onClick={() => setYearAnchor(y => y - WINDOW)} style={navBtn}>
-            <ChevronLeft style={{ width: 16, height: 16, color: "var(--ink-soft)" }} strokeWidth={2.4} />
-          </button>
-          <button onClick={() => setMode("calendar")} style={{ fontWeight: 600, fontSize: 13, color: "var(--ink-mute)", background: "none", border: 0, cursor: "pointer", fontFamily: "inherit" }}>
-            ← Back to calendar
-          </button>
-          <button onClick={() => setYearAnchor(y => y + WINDOW)} style={navBtn}>
-            <ChevronRight style={{ width: 16, height: 16, color: "var(--ink-soft)" }} strokeWidth={2.4} />
-          </button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 5 }}>
-          {years.map(yr => gridBtn(yr, yr === view.getFullYear(), yr > today.getFullYear(), () => {
-            setView(new Date(yr, view.getMonth(), 1)); setYearAnchor(yr); setMode("month");
-          }))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── month grid ──
-  if (mode === "month") {
-    const canGoForward = view.getFullYear() < today.getFullYear();
-    return (
-      <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <button onClick={() => { const y = view.getFullYear() - 1; setView(new Date(y, view.getMonth(), 1)); setYearAnchor(y); }} style={navBtn}>
-            <ChevronLeft style={{ width: 16, height: 16, color: "var(--ink-soft)" }} strokeWidth={2.4} />
-          </button>
-          <button onClick={() => setMode("year")} style={{ fontWeight: 800, fontSize: 15, color: "var(--primary)", letterSpacing: -0.2, background: "none", border: 0, cursor: "pointer", fontFamily: "inherit" }}>
-            {view.getFullYear()}
-          </button>
-          <button onClick={() => { if (canGoForward) { const y = view.getFullYear() + 1; setView(new Date(y, view.getMonth(), 1)); setYearAnchor(y); } }} style={{ ...navBtn, opacity: canGoForward ? 1 : 0.3, cursor: canGoForward ? "pointer" : "default" }}>
-            <ChevronRight style={{ width: 16, height: 16, color: "var(--ink-soft)" }} strokeWidth={2.4} />
-          </button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5 }}>
-          {MONTHS_ABBR.map((m, i) => gridBtn(m, i === view.getMonth(),
-            view.getFullYear() === today.getFullYear() && i > today.getMonth(),
-            () => { setView(new Date(view.getFullYear(), i, 1)); setMode("calendar"); }
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── day calendar ──
   const firstDow = new Date(view.getFullYear(), view.getMonth(), 1).getDay();
   const daysInMonth = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
   const cells: (Date | null)[] = [];
   for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(view.getFullYear(), view.getMonth(), d));
+  // Always pad to 42 cells (6 full rows) so the grid height is constant across all months
+  while (cells.length < 42) cells.push(null);
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-        {quickChip("Today", () => ({ start: today, end: null }))}
-        {quickChip("This weekend", () => {
-          const sat = new Date(today); sat.setDate(today.getDate() + (6 - today.getDay()));
-          const sun = new Date(sat); sun.setDate(sat.getDate() + 1);
-          return { start: sat, end: sun };
-        })}
-        {quickChip("Clear", () => ({ start: null, end: null }))}
+      {/* quick chips */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+        {[
+          { label: "Today", build: () => ({ start: today, end: null }) },
+          { label: "This weekend", build: () => {
+            const sat = new Date(today); sat.setDate(today.getDate() + (6 - today.getDay()));
+            const sun = new Date(sat); sun.setDate(sat.getDate() + 1);
+            return { start: sat, end: sun };
+          }},
+          { label: "Clear", build: () => ({ start: null, end: null }) },
+        ].map(({ label, build }) => (
+          <button key={label} onClick={() => onChange(build())} style={{ background: "var(--surface-alt)", border: "0.5px solid var(--hairline)", color: "var(--ink-soft)", borderRadius: 100, padding: "5px 10px", cursor: "pointer", fontWeight: 600, fontSize: 11, whiteSpace: "nowrap", fontFamily: "inherit" }}>
+            {label}
+          </button>
+        ))}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <button onClick={() => setView(v => new Date(v.getFullYear(), v.getMonth() - 1, 1))} style={navBtn}>
-          <ChevronLeft style={{ width: 16, height: 16, color: "var(--ink-soft)" }} strokeWidth={2.4} />
-        </button>
-        <button onClick={() => { setYearAnchor(view.getFullYear()); setMode("year"); }}
-          style={{ fontWeight: 800, fontSize: 15, color: "var(--ink)", letterSpacing: -0.2, background: "none", border: 0, cursor: "pointer", fontFamily: "inherit", padding: "4px 8px", borderRadius: 8 }}>
-          {MONTHS[view.getMonth()]} {view.getFullYear()}
-        </button>
-        <button onClick={() => setView(v => new Date(v.getFullYear(), v.getMonth() + 1, 1))} style={navBtn}>
-          <ChevronRight style={{ width: 16, height: 16, color: "var(--ink-soft)" }} strokeWidth={2.4} />
-        </button>
-      </div>
+      {/* two-column layout: day grid left, month/year picker right */}
+      <div style={{ display: "flex", gap: 14 }}>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 2 }}>
-        {DOW.map((d, i) => <div key={i} style={{ textAlign: "center", ...mono, fontSize: 9.5, color: "var(--ink-mute)", padding: "2px 0", fontWeight: 600 }}>{d}</div>)}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", rowGap: 2 }}>
-        {cells.map((d, i) => {
-          if (!d) return <div key={i} />;
-          const isStart = sameDay(d, value.start);
-          const isEnd   = value.end ? sameDay(d, value.end) : false;
-          const mid     = !!(value.start && value.end && stripTime(d) > stripTime(value.start) && stripTime(d) < stripTime(value.end));
-          const isToday = sameDay(d, today);
-          const endpoint = isStart || isEnd;
-          return (
-            <div key={i} style={{
-              position: "relative", display: "flex", alignItems: "center", justifyContent: "center", height: 38,
-              background: mid ? rangeBg
-                : isStart && value.end ? `linear-gradient(to right, transparent 50%, ${rangeBg} 50%)`
-                : isEnd ? `linear-gradient(to left, transparent 50%, ${rangeBg} 50%)`
-                : "transparent",
-            }}>
-              <button onClick={() => pick(d)} style={{
-                width: 34, height: 34, borderRadius: "50%", cursor: "pointer",
-                border: isToday && !endpoint ? "1.5px solid rgba(31,61,46,0.4)" : "none",
-                background: endpoint ? "var(--primary)" : "transparent",
-                color: endpoint ? "#FFFBF1" : mid ? "var(--primary)" : "var(--ink)",
-                fontWeight: endpoint ? 800 : mid ? 700 : 500, fontSize: 13.5,
-                display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit",
-              }}>{d.getDate()}</button>
+        {/* ── Left: day grid ── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <button onClick={() => setView(v => new Date(v.getFullYear(), v.getMonth() - 1, 1))} style={navBtn}>
+              <ChevronLeft style={{ width: 14, height: 14, color: "var(--ink-soft)" }} strokeWidth={2.4} />
+            </button>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)", letterSpacing: -0.1 }}>
+              {MONTHS[view.getMonth()]} {view.getFullYear()}
             </div>
-          );
-        })}
+            <button onClick={() => setView(v => new Date(v.getFullYear(), v.getMonth() + 1, 1))} style={navBtn}>
+              <ChevronRight style={{ width: 14, height: 14, color: "var(--ink-soft)" }} strokeWidth={2.4} />
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 2 }}>
+            {DOW.map((d, i) => <div key={i} style={{ textAlign: "center", ...mono, fontSize: 9, color: "var(--ink-mute)", padding: "2px 0", fontWeight: 600 }}>{d}</div>)}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", rowGap: 1 }}>
+            {cells.map((d, i) => {
+              if (!d) return <div key={i} />;
+              const isStart = sameDay(d, value.start);
+              const isEnd   = value.end ? sameDay(d, value.end) : false;
+              const mid     = !!(value.start && value.end && stripTime(d) > stripTime(value.start) && stripTime(d) < stripTime(value.end));
+              const isToday = sameDay(d, today);
+              const endpoint = isStart || isEnd;
+              return (
+                <div key={i} style={{
+                  position: "relative", display: "flex", alignItems: "center", justifyContent: "center", height: 34,
+                  background: mid ? rangeBg
+                    : isStart && value.end ? `linear-gradient(to right, transparent 50%, ${rangeBg} 50%)`
+                    : isEnd ? `linear-gradient(to left, transparent 50%, ${rangeBg} 50%)`
+                    : "transparent",
+                }}>
+                  <button onClick={() => pick(d)} style={{
+                    width: 30, height: 30, borderRadius: "50%", cursor: "pointer",
+                    border: isToday && !endpoint ? "1.5px solid rgba(31,61,46,0.4)" : "none",
+                    background: endpoint ? "var(--primary)" : "transparent",
+                    color: endpoint ? "#FFFBF1" : mid ? "var(--primary)" : "var(--ink)",
+                    fontWeight: endpoint ? 800 : mid ? 700 : 400, fontSize: 12.5,
+                    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit",
+                  }}>{d.getDate()}</button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Right: year + month picker ── */}
+        <div style={{ width: 130, flexShrink: 0, borderLeft: "0.5px solid var(--hairline-soft)", paddingLeft: 14 }}>
+          <div style={{ ...mono, fontSize: 8.5, letterSpacing: 0.8, color: "var(--ink-mute)", fontWeight: 600, marginBottom: 5 }}>YEAR</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <button onClick={() => setView(v => new Date(v.getFullYear() - 1, v.getMonth(), 1))} style={navBtn}>
+              <ChevronLeft style={{ width: 11, height: 11, color: "var(--ink-soft)" }} strokeWidth={2.4} />
+            </button>
+            <div style={{ fontWeight: 700, fontSize: 12.5, color: "var(--ink)", letterSpacing: -0.1 }}>{view.getFullYear()}</div>
+            <button onClick={() => { if (view.getFullYear() < today.getFullYear()) setView(v => new Date(v.getFullYear() + 1, v.getMonth(), 1)); }} style={{ ...navBtn, opacity: view.getFullYear() >= today.getFullYear() ? 0.3 : 1, cursor: view.getFullYear() >= today.getFullYear() ? "default" : "pointer" }}>
+              <ChevronRight style={{ width: 11, height: 11, color: "var(--ink-soft)" }} strokeWidth={2.4} />
+            </button>
+          </div>
+
+          <div style={{ height: "0.5px", background: "var(--hairline-soft)", margin: "10px 0 10px" }} />
+          <div style={{ ...mono, fontSize: 8.5, letterSpacing: 0.8, color: "var(--ink-mute)", fontWeight: 600, marginBottom: 4 }}>MONTH</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2 }}>
+            {MONTHS_ABBR.map((m, i) => {
+              const isFuture = view.getFullYear() === today.getFullYear() && i > today.getMonth();
+              const isViewMonth = i === view.getMonth();
+              return (
+                <button key={m} onClick={() => { if (!isFuture) setView(new Date(view.getFullYear(), i, 1)); }} style={{
+                  padding: "3px 1px", borderRadius: 6, cursor: isFuture ? "default" : "pointer",
+                  background: isViewMonth ? "var(--primary)" : "transparent", border: "none",
+                  color: isViewMonth ? "#FFFBF1" : isFuture ? "var(--ink-mute)" : "var(--ink-soft)",
+                  fontWeight: isViewMonth ? 700 : 400, fontSize: 10.5, fontFamily: "inherit",
+                  opacity: isFuture ? 0.35 : 1, textAlign: "center",
+                }}>{m}</button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -892,14 +863,14 @@ function StepWhere({ draft, set, onOpenPark, park }: { draft: VisitDraft; set: S
         <ParkHeroRow park={park} onChangePark={onOpenPark} />
       </Section>
       <div style={hasPark ? unlockedStyle : lockedStyle}>
-        <Section kicker="TITLE" title="Name this visit" hint="A line you'll recognize it by later." mb={18}>
+        <Section title="Trip title" mb={18}>
           <div>
-            <input value={draft.title} onChange={e => set("title", e.target.value.slice(0, 80))} placeholder="e.g. Sunrise on Cadillac Mountain"
+            <input value={draft.title} onChange={e => set("title", e.target.value.slice(0, 80))} placeholder="Give this trip a name"
               style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 14px", fontSize: 15, color: "var(--ink)", outline: "none", fontWeight: 600, boxSizing: "border-box", fontFamily: "inherit" }} />
             <div style={{ ...mono, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6, marginTop: 5, textAlign: "right" }}>{draft.title.length} / 80</div>
           </div>
         </Section>
-        <Section kicker="WHEN" title="Dates" hint="Single day or a multi-day trip — tap a start and end.">
+        <Section title="Dates">
           <Card pad={14}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingBottom: 12, borderBottom: "0.5px solid var(--hairline-soft)" }}>
               <div>
@@ -923,12 +894,12 @@ function StepWhere({ draft, set, onOpenPark, park }: { draft: VisitDraft; set: S
 function StepRate({ draft, set }: { draft: VisitDraft; set: SetFn }) {
   return (
     <>
-      <Section kicker="OVERALL" title="How was it?" hint="Your gut rating for the whole visit." mb={18}>
+      <Section title="How was it?" mb={18}>
         <Card>
           <ScaleControl value={draft.rating} onChange={v => set("rating", v)} mode="stars" accent="var(--accent)" />
         </Card>
       </Section>
-      <Section kicker="THE CONDITIONS (optional)" mb={18}>
+      <Section mb={18}>
         <Card>
           <RatingRow iconName="crowd" label="Crowd level">
             <ScaleControl value={draft.crowd} onChange={v => set("crowd", v)} mode="segmented" labels={CROWD_LABELS} accent="var(--primary)" />
@@ -938,10 +909,10 @@ function StepRate({ draft, set }: { draft: VisitDraft; set: SetFn }) {
           </RatingRow>
         </Card>
       </Section>
-      <Section kicker="WEATHER (optional)" title="What were the skies doing?" mb={18}>
+      <Section title="Weather" mb={18}>
         <Card><WeatherPicker value={draft.weather} onChange={v => set("weather", v)} /></Card>
       </Section>
-      <Section kicker="VERDICT (optional)" title="Would you go back?">
+      <Section title="Would you go back?">
         <ReturnChoice value={draft.wouldReturn} onChange={v => set("wouldReturn", v)} />
       </Section>
     </>
@@ -951,27 +922,27 @@ function StepRate({ draft, set }: { draft: VisitDraft; set: SetFn }) {
 function StepJournal({ draft, set }: { draft: VisitDraft; set: SetFn }) {
   return (
     <>
-      <Section kicker="HIGHLIGHT" title="The one thing you'll remember" hint="Optional — the moment that made the trip." mb={18}>
+      <Section mb={18}>
         <div>
-          <input value={draft.highlight} onChange={e => set("highlight", e.target.value.slice(0, 90))} placeholder="e.g. Half Dome glowed pink for 90 seconds"
+          <input value={draft.highlight} onChange={e => set("highlight", e.target.value.slice(0, 90))} placeholder="The one moment you'll remember"
             style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 14px", fontSize: 15, color: "var(--ink)", outline: "none", fontWeight: 600, boxSizing: "border-box", fontFamily: "inherit" }} />
           <div style={{ ...mono, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6, marginTop: 5, textAlign: "right" }}>{draft.highlight.length} / 90</div>
         </div>
       </Section>
-      <Section kicker="JOURNAL" title="Field notes" mb={18}>
+      <Section mb={18}>
         <div>
-          <textarea value={draft.notes} onChange={e => set("notes", e.target.value.slice(0, 2000))} placeholder="What did you see, hear, feel? Write it down before you forget."
+          <textarea value={draft.notes} onChange={e => set("notes", e.target.value.slice(0, 2000))} placeholder="What did you see, hear, feel?"
             style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 14px", fontSize: 15, color: "var(--ink)", outline: "none", lineHeight: 1.5, minHeight: 130, resize: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
           <div style={{ ...mono, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6, marginTop: 5, textAlign: "right" }}>{draft.notes.length} / 2000</div>
         </div>
       </Section>
-      <Section kicker="ACTIVITIES" title="What did you do?" mb={18}>
+      <Section title="Activities" mb={18}>
         <ActivityPicker value={draft.activities} onChange={v => set("activities", v)} />
       </Section>
-      <Section kicker="COMPANIONS" title="Who came along?" mb={18}>
+      <Section title="Who came along?" mb={18}>
         <CompanionPicker value={draft.companions} onChange={v => set("companions", v)} />
       </Section>
-      <Section kicker="PHOTOS" title="Add photos" hint="Pick a cover with the star.">
+      <Section title="Photos">
         <PhotoUploader photos={draft.photos} cover={draft.cover}
           onAddPhotos={urls => {
             const next = [...draft.photos, ...urls].slice(0, 10);
@@ -992,7 +963,7 @@ function StepJournal({ draft, set }: { draft: VisitDraft; set: SetFn }) {
 
 function StepShare({ draft, set }: { draft: VisitDraft; set: SetFn }) {
   return (
-    <Section kicker="VISIBILITY" title="Who can see this?">
+    <Section title="Who can see this?">
       <VisibilityChoice value={draft.visibility} onChange={v => set("visibility", v)} />
     </Section>
   );
