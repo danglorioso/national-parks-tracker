@@ -9,8 +9,28 @@ import type { NpsData } from "@/app/api/parks/[park_code]/nps/route";
 interface VisitEntry {
   id: number;
   visited_date: string;
+  end_date?: string | null;
   title?: string | null;
   notes?: string | null;
+}
+
+function formatVisitDateRange(startIso: string, endIso?: string | null): string {
+  const start = new Date(startIso);
+  if (!endIso) {
+    return start.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  }
+  const end = new Date(endIso);
+  const days = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  const sy = start.getFullYear(), ey = end.getFullYear();
+  const sm = start.getMonth(), em = end.getMonth();
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  if (sy === ey && sm === em) {
+    return `${start.toLocaleDateString("en-US", { month: "long", day: "numeric" })}–${end.getDate()}, ${sy} · ${days}d`;
+  }
+  if (sy === ey) {
+    return `${start.toLocaleDateString("en-US", opts)}–${end.toLocaleDateString("en-US", opts)}, ${sy} · ${days}d`;
+  }
+  return `${start.toLocaleDateString("en-US", { ...opts, year: "numeric" })}–${end.toLocaleDateString("en-US", { ...opts, year: "numeric" })} · ${days}d`;
 }
 
 interface Park {
@@ -382,9 +402,7 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {sortedVisits.map((visit) => {
                   const isExpanded = expandedVisits.has(visit.id);
-                  const dateStr = new Date(visit.visited_date).toLocaleDateString("en-US", {
-                    year: "numeric", month: "long", day: "numeric",
-                  });
+                  const dateStr = formatVisitDateRange(visit.visited_date, visit.end_date);
                   return (
                     <div
                       key={visit.id}

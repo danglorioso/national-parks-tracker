@@ -12,7 +12,7 @@ import {
 import { GlobalSpotlight } from "@/components/desktop/GlobalSpotlight";
 import { useTheme, type Palette } from "@/components/ThemeProvider";
 import EditProfileDialog from "@/components/EditProfileDialog";
-import { CreatePostModal } from "@/components/CreatePostModal";
+import { LogVisitModal } from "@/components/LogVisitModal";
 
 // ── Wordmark ─────────────────────────────────────────────────────────────────
 
@@ -532,9 +532,7 @@ export function DesktopShell({
         overlayLeft={232}
       />
       <GlobalSpotlight open={spotlightOpen} onClose={() => setSpotlightOpen(false)} />
-      {logVisitOpen && (
-        <CreatePostModal onClose={() => setLogVisitOpen(false)} />
-      )}
+      <LogVisitModal open={logVisitOpen} onClose={() => setLogVisitOpen(false)} />
       <DesktopSidebar
         visitedCount={visitedCount}
         totalCount={totalCount}

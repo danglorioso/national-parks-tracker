@@ -305,7 +305,7 @@ export default function Home() {
 
   if (isSignedIn) {
     return (
-      <DesktopShell fullbleed onLogVisit={() => handleMarkVisited(parks.find(p => p.status !== "visited")?.park_code ?? "")}>
+      <DesktopShell fullbleed>
         {/* Full-bleed map area with absolute floating panels */}
         <div className="relative h-full w-full" style={{ background: "#E8E2D0" }}>
 
