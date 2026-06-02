@@ -47,7 +47,7 @@ function Ic({ n, size = 22, sw = 1.8, stroke = "currentColor" }: { n: IconName; 
 
 interface DateRange { start: Date | null; end: Date | null; }
 interface WeatherState { conds: string[]; }
-interface CompanionState { type: string | null; tagged: string[]; }
+interface FollowUser { clerk_user_id: string; username: string; display_name?: string | null; avatar_url: string | null; }
 
 interface VisitDraft {
   parkCode: string;
@@ -58,7 +58,7 @@ interface VisitDraft {
   difficulty: number;
   weather: WeatherState;
   activities: string[];
-  companions: CompanionState;
+  companions: string[]; // clerk_user_ids of tagged companions
   wouldReturn: string | null;
   highlight: string;
   notes: string;
@@ -91,12 +91,31 @@ const ALL_ACTIVITIES = [
   "cycling","mountaineering",
 ];
 
-const COMPANION_OPTS: { id: string; label: string; icon: IconName }[] = [
-  { id: "solo",    label: "Solo",    icon: "figure" },
-  { id: "partner", label: "Partner", icon: "figure" },
-  { id: "friends", label: "Friends", icon: "crowd" },
-  { id: "family",  label: "Family",  icon: "crowd" },
-];
+// Maps each internal activity ID to keywords found in NPS activity name strings
+const ACTIVITY_KEYWORDS: Record<string, string[]> = {
+  hiking:         ["hiking", "hike", "trail"],
+  camping:        ["camping"],
+  backpacking:    ["backpacking"],
+  climbing:       ["climbing"],
+  kayaking:       ["kayaking", "canoeing", "paddling"],
+  rafting:        ["rafting"],
+  fishing:        ["fishing"],
+  diving:         ["diving", "scuba", "snorkeling"],
+  wildlife:       ["wildlife", "birding", "bird watching", "wildlife watching"],
+  photography:    ["photography"],
+  stargazing:     ["stargazing", "astronomy"],
+  tours:          ["guided", "tour", "ranger program", "auto and atv"],
+  cycling:        ["biking", "cycling", "bicycle"],
+  mountaineering: ["mountaineering"],
+};
+
+function matchActivities(npsNames: string[]): string[] {
+  const lower = npsNames.map(n => n.toLowerCase());
+  return ALL_ACTIVITIES.filter(id =>
+    (ACTIVITY_KEYWORDS[id] ?? [id]).some(kw => lower.some(n => n.includes(kw)))
+  );
+}
+
 
 const RETURN_OPTS: { id: string; label: string; icon: IconName }[] = [
   { id: "yes",   label: "Definitely",   icon: "heart" },
@@ -157,7 +176,7 @@ function makeBlankDraft(): VisitDraft {
     parkCode: "", dates: { start: null, end: null }, title: "",
     rating: 0, crowd: 0, difficulty: 0,
     weather: { conds: [] }, activities: [],
-    companions: { type: null, tagged: [] }, wouldReturn: null,
+    companions: [], wouldReturn: null,
     highlight: "", notes: "", photos: [], cover: null, visibility: "Friends",
   };
 }
@@ -218,7 +237,7 @@ function ParkPickerDialog({ parks, value, onClose, onPick }: {
     <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 120, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div onClick={e => e.stopPropagation()} style={{ width: 460, maxHeight: 560, background: "var(--surface)", borderRadius: 16, border: "0.5px solid var(--hairline)", boxShadow: "0 24px 60px rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ padding: "18px 18px 12px" }}>
-          <div style={{ fontWeight: 800, fontSize: 18, color: "var(--ink)", letterSpacing: -0.3 }}>Which park?</div>
+          <div style={{ fontWeight: 800, fontSize: 18, color: "var(--ink)", letterSpacing: -0.3 }}>Which park did you visit?</div>
           <div style={{ background: "var(--surface-alt)", borderRadius: 11, padding: "9px 12px", marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
             <Search style={{ width: 16, height: 16, color: "var(--ink-mute)", flexShrink: 0 }} strokeWidth={2} />
             <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder="Search 63 parks…" style={{ flex: 1, border: 0, outline: "none", background: "transparent", fontSize: 14, color: "var(--ink)", fontFamily: "inherit" }} />
@@ -258,7 +277,8 @@ function ParkHeroRow({ park, onChangePark }: { park: ParkData | undefined; onCha
       })
       .catch(() => { if (!cancelled) setFetchedImg(null); });
     return () => { cancelled = true; };
-  }, [park?.park_code]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [park?.park_code]); // intentionally only re-run when the park code changes, not on every park object ref change
 
   const imgUrl = park ? fetchedImg : null;
 
@@ -286,8 +306,8 @@ function ParkHeroRow({ park, onChangePark }: { park: ParkData | undefined; onCha
           <Search style={{ width: 20, height: 20, color: "#FFFBF1" }} strokeWidth={2.2} />
         </div>
         <div style={{ textAlign: "left" }}>
-          <div style={{ fontWeight: 800, fontSize: 16, color: "var(--ink)", letterSpacing: -0.2 }}>Search for a park</div>
-          <div style={{ fontSize: 12.5, color: "var(--ink-mute)", marginTop: 2 }}>Choose from all 63 US national parks</div>
+          <div style={{ fontWeight: 800, fontSize: 16, color: "var(--ink)", letterSpacing: -0.2 }}>Select a park</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-mute)", marginTop: 2 }}>Search over all US national parks</div>
         </div>
       </button>
     );
@@ -451,28 +471,101 @@ function DateRangeCalendar({ value, onChange }: { value: DateRange; onChange: (v
   );
 }
 
-// ── Scale control (stars / segmented) ─────────────────────────────────────
+// ── Half-star rating ───────────────────────────────────────────────────────
+
+// One label per half-step: 0 = unset, 0.5, 1.0, 1.5 … 5.0
+const HALF_LABELS: Record<number, string> = {
+  0:   "No rating",
+  0.5: "Not great",
+  1:   "Rough",
+  1.5: "Below average",
+  2:   "Meh",
+  2.5: "Decent",
+  3:   "Good",
+  3.5: "Really good",
+  4:   "Great",
+  4.5: "Amazing",
+  5:   "Unreal",
+};
+
+function StarRating({ value, onChange, accent = "var(--accent)" }: {
+  value: number; onChange: (v: number) => void; accent?: string;
+}) {
+  const [hover, setHover] = useState<number>(0);
+  const display = hover || value;
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>, i: number) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isLeft = e.clientX - rect.left < rect.width / 2;
+    const next = isLeft ? i + 0.5 : i + 1;
+    onChange(next === value ? 0 : next);
+  };
+
+  const handleMove = (e: React.MouseEvent<HTMLButtonElement>, i: number) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isLeft = e.clientX - rect.left < rect.width / 2;
+    setHover(isLeft ? i + 0.5 : i + 1);
+  };
+
+  const fillType = (i: number, v: number): "full" | "half" | "empty" => {
+    if (v >= i + 1) return "full";
+    if (v >= i + 0.5) return "half";
+    return "empty";
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 10 }}>
+        {Array.from({ length: 5 }).map((_, i) => {
+          const fill = fillType(i, display);
+          return (
+            <button
+              key={i}
+              onClick={e => handleClick(e, i)}
+              onMouseMove={e => handleMove(e, i)}
+              onMouseLeave={() => setHover(0)}
+              style={{ background: "transparent", border: 0, padding: 3, cursor: "pointer", lineHeight: 0 }}
+            >
+              <div style={{ position: "relative", width: 32, height: 32 }}>
+                {/* empty base */}
+                <Star style={{ position: "absolute", inset: 0, width: 32, height: 32, color: "var(--ink-mute)" }} strokeWidth={1.6} fill="none" />
+                {/* filled overlay */}
+                {fill !== "empty" && (
+                  <Star style={{ position: "absolute", inset: 0, width: 32, height: 32, color: accent, clipPath: fill === "half" ? "inset(0 50% 0 0)" : "none" }} strokeWidth={1.6} fill={accent} />
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ minHeight: 20 }}>
+        {display > 0 ? (
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontWeight: 800, fontSize: 22, color: "var(--ink)", letterSpacing: -0.4, lineHeight: 1 }}>{display}</span>
+            <span style={{ fontWeight: 600, fontSize: 13, color: "var(--ink-mute)" }}>/ 5</span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: accent, marginLeft: 2 }}>{HALF_LABELS[display]}</span>
+            {!hover && value > 0 && (
+              <button onClick={() => onChange(0)} style={{ background: "none", border: 0, cursor: "pointer", fontSize: 11.5, color: "var(--ink-mute)", marginLeft: 4, padding: 0, fontFamily: "inherit" }}>
+                Clear
+              </button>
+            )}
+          </div>
+        ) : (
+          <span style={{ fontSize: 12.5, color: "var(--ink-mute)" }}>Hover over a star to rate</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Scale control (segmented only — stars now use StarRating) ──────────────
 
 function ScaleControl({ value, onChange, mode = "stars", labels, accent = "var(--accent)" }: {
   value: number; onChange: (v: number) => void;
   mode?: "stars" | "segmented"; labels?: string[]; accent?: string;
 }) {
   if (mode === "stars") {
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ display: "flex", gap: 4 }}>
-          {Array.from({ length: 5 }).map((_, i) => {
-            const on = i < value;
-            return (
-              <button key={i} onClick={() => onChange(i + 1 === value ? 0 : i + 1)} style={{ background: "transparent", border: 0, padding: 2, cursor: "pointer", lineHeight: 0 }}>
-                <Star style={{ width: 28, height: 28, color: on ? accent : "var(--ink-mute)", fill: on ? accent : "none" }} strokeWidth={1.8} />
-              </button>
-            );
-          })}
-        </div>
-        {labels && value > 0 && <span style={{ fontWeight: 700, fontSize: 13, color: "var(--ink-soft)", marginLeft: 2 }}>{labels[value - 1]}</span>}
-      </div>
-    );
+    return <StarRating value={value} onChange={onChange} accent={accent} />;
   }
   return (
     <div style={{ display: "flex", gap: 4 }}>
@@ -541,14 +634,14 @@ function WeatherPicker({ value, onChange }: { value: WeatherState; onChange: (v:
 
 // ── Activity picker ────────────────────────────────────────────────────────
 
-function ActivityPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+function ActivityPicker({ value, onChange, options = ALL_ACTIVITIES }: { value: string[]; onChange: (v: string[]) => void; options?: string[] }) {
   const toggle = (a: string) => {
     if (value.includes(a)) onChange(value.filter(x => x !== a));
     else if (value.length < 8) onChange([...value, a]);
   };
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-      {ALL_ACTIVITIES.map(a => {
+      {options.map(a => {
         const on = value.includes(a);
         return (
           <button key={a} onClick={() => toggle(a)} style={{
@@ -556,11 +649,10 @@ function ActivityPicker({ value, onChange }: { value: string[]; onChange: (v: st
             color: on ? "#FFFBF1" : "var(--ink-soft)",
             border: `0.5px solid ${on ? "var(--primary)" : "var(--hairline)"}`,
             borderRadius: 100, padding: "7px 13px", cursor: "pointer",
-            fontWeight: on ? 700 : 600, fontSize: 12.5, textTransform: "capitalize",
+            fontWeight: 600, fontSize: 12.5, textTransform: "capitalize",
             display: "flex", alignItems: "center", gap: 5, fontFamily: "inherit",
             transition: "all 110ms",
           }}>
-            {on && <Check style={{ width: 13, height: 13 }} strokeWidth={2.6} />}
             {a}
           </button>
         );
@@ -571,35 +663,94 @@ function ActivityPicker({ value, onChange }: { value: string[]; onChange: (v: st
 
 // ── Companion picker ───────────────────────────────────────────────────────
 
-function CompanionPicker({ value, onChange }: { value: CompanionState; onChange: (v: CompanionState) => void }) {
-  const showTagRow = value.type === "partner" || value.type === "friends" || value.type === "family";
-  return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
-        {COMPANION_OPTS.map(c => {
-          const on = value.type === c.id;
-          return (
-            <button key={c.id} onClick={() => onChange({ ...value, type: on ? null : c.id })} style={{
-              padding: "10px 2px", borderRadius: 12, cursor: "pointer",
-              background: on ? "var(--primary)" : "var(--surface-alt)",
-              border: `0.5px solid ${on ? "var(--primary)" : "var(--hairline)"}`,
-              color: on ? "#FFFBF1" : "var(--ink-soft)",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-              fontWeight: on ? 700 : 600, fontSize: 11.5, fontFamily: "inherit",
-            }}>
-              <Ic n={c.icon} size={19} sw={1.9} stroke={on ? "#FFFBF1" : "var(--ink-soft)"} />
-              {c.label}
-            </button>
-          );
-        })}
-      </div>
-      {showTagRow && (
-        <div style={{ marginTop: 12 }}>
-          <FieldLabel>Tag who came along</FieldLabel>
-          <div style={{ fontSize: 12, color: "var(--ink-mute)", fontStyle: "italic" }}>
-            Friend tagging coming soon.
+function CompanionPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<FollowUser[]>([]);
+  const [tagged, setTagged] = useState<FollowUser[]>([]); // cache of tagged user objects
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const toggle = (u: FollowUser) => {
+    if (value.includes(u.clerk_user_id)) {
+      onChange(value.filter(id => id !== u.clerk_user_id));
+    } else {
+      setTagged(prev => prev.find(t => t.clerk_user_id === u.clerk_user_id) ? prev : [...prev, u]);
+      onChange([...value, u.clerk_user_id]);
+    }
+  };
+
+  const handleSearch = (val: string) => {
+    setQ(val);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (!val.trim()) { setResults([]); return; }
+    timerRef.current = setTimeout(() => {
+      fetch(`/api/users?search=${encodeURIComponent(val)}&limit=10`)
+        .then(r => r.ok ? r.json() : [])
+        .then((data: FollowUser[]) => setResults(data))
+        .catch(() => {});
+    }, 200);
+  };
+
+  const UserRow = ({ u, onToggle }: { u: FollowUser; onToggle: () => void }) => {
+    const on = value.includes(u.clerk_user_id);
+    const displayName = u.display_name ?? u.username;
+    return (
+      <button onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 10, background: on ? "rgba(31,61,46,0.08)" : "transparent", border: 0, cursor: "pointer", textAlign: "left", fontFamily: "inherit", width: "100%" }}>
+        {u.avatar_url
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={u.avatar_url} alt={displayName} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+          : <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--surface-alt)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "var(--ink-soft)", flexShrink: 0 }}>{displayName[0]?.toUpperCase()}</div>
+        }
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 13.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {displayName}
+            <span style={{ fontWeight: 400, color: "var(--ink-mute)", marginLeft: 5 }}>@{u.username}</span>
           </div>
         </div>
+        {on && <Check style={{ width: 16, height: 16, color: "var(--primary)", flexShrink: 0 }} strokeWidth={2.4} />}
+      </button>
+    );
+  };
+
+  return (
+    <div>
+      {/* tagged chips */}
+      {value.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+          {tagged.filter(u => value.includes(u.clerk_user_id)).map(u => {
+            const name = (u.display_name ?? u.username).split(/\s+/)[0];
+            return (
+              <div key={u.clerk_user_id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 6px 4px 4px", borderRadius: 100, background: "var(--primary)" }}>
+                {u.avatar_url
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={u.avatar_url} alt={name} style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }} />
+                  : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(255,251,241,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#FFFBF1", fontWeight: 700 }}>{name[0]}</div>
+                }
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: "#FFFBF1", fontFamily: "inherit" }}>{name}</span>
+                <button onClick={() => toggle(u)} style={{ background: "none", border: 0, cursor: "pointer", lineHeight: 0, padding: "2px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <X style={{ width: 12, height: 12, color: "rgba(255,251,241,0.8)" }} strokeWidth={2.4} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* search input */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 12, padding: "9px 12px", marginBottom: 6 }}>
+        <Search style={{ width: 14, height: 14, color: "var(--ink-mute)", flexShrink: 0 }} strokeWidth={2} />
+        <input value={q} onChange={e => handleSearch(e.target.value)} placeholder="Search for other users..."
+          style={{ flex: 1, border: 0, outline: "none", background: "transparent", fontSize: 13.5, color: "var(--ink)", fontFamily: "inherit" }} />
+        {q && <button onClick={() => { setQ(""); setResults([]); }} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--ink-mute)", lineHeight: 0, padding: 0 }}><X style={{ width: 13, height: 13 }} strokeWidth={2} /></button>}
+      </div>
+
+      {/* results */}
+      {results.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 200, overflowY: "auto" }}>
+          {results.map(u => <UserRow key={u.clerk_user_id} u={u} onToggle={() => toggle(u)} />)}
+        </div>
+      )}
+      {q.trim() && results.length === 0 && (
+        <div style={{ fontSize: 13, color: "var(--ink-mute)", padding: "6px 10px" }}>No users found</div>
       )}
     </div>
   );
@@ -809,7 +960,12 @@ function VisitPreview({ draft, park, userName, avatarUrl }: {
           {draft.rating > 0 && (
             <div style={{ position: "absolute", top: 10, right: 10, background: "rgba(20,17,12,0.55)", backdropFilter: "blur(8px)", padding: "5px 9px", borderRadius: 100, display: "flex", gap: 3 }}>
               {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} style={{ width: 12, height: 12, color: i < draft.rating ? "#FFD580" : "rgba(255,255,255,0.3)", fill: i < draft.rating ? "#FFD580" : "none" }} strokeWidth={1.6} />
+                <div key={i} style={{ position: "relative", width: 12, height: 12 }}>
+                  <Star style={{ position: "absolute", inset: 0, width: 12, height: 12, color: "rgba(255,255,255,0.3)" }} strokeWidth={1.6} fill="none" />
+                  {draft.rating >= i + 0.5 && (
+                    <Star style={{ position: "absolute", inset: 0, width: 12, height: 12, color: "#FFD580", clipPath: draft.rating >= i + 1 ? "none" : "inset(0 50% 0 0)" }} strokeWidth={1.6} fill="#FFD580" />
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -862,15 +1018,12 @@ function StepWhere({ draft, set, onOpenPark, park }: { draft: VisitDraft; set: S
       <Section mb={18}>
         <ParkHeroRow park={park} onChangePark={onOpenPark} />
       </Section>
-      <div style={hasPark ? unlockedStyle : lockedStyle}>
-        <Section title="Trip title" mb={18}>
-          <div>
-            <input value={draft.title} onChange={e => set("title", e.target.value.slice(0, 80))} placeholder="Give this trip a name"
-              style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 14px", fontSize: 15, color: "var(--ink)", outline: "none", fontWeight: 600, boxSizing: "border-box", fontFamily: "inherit" }} />
-            <div style={{ ...mono, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6, marginTop: 5, textAlign: "right" }}>{draft.title.length} / 80</div>
-          </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 18, ...(hasPark ? unlockedStyle : lockedStyle) }}>
+        <Section title="Trip title" mb={0}>
+          <input value={draft.title} onChange={e => set("title", e.target.value.slice(0, 80))} placeholder="Give this trip a name"
+            style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 14px", fontSize: 15, color: "var(--ink)", outline: "none", fontWeight: 600, boxSizing: "border-box", fontFamily: "inherit" }} />
         </Section>
-        <Section title="Dates">
+        <Section title="Dates" mb={0}>
           <Card pad={14}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingBottom: 12, borderBottom: "0.5px solid var(--hairline-soft)" }}>
               <div>
@@ -919,25 +1072,27 @@ function StepRate({ draft, set }: { draft: VisitDraft; set: SetFn }) {
   );
 }
 
-function StepJournal({ draft, set }: { draft: VisitDraft; set: SetFn }) {
+function StepJournal({ draft, set, activities }: { draft: VisitDraft; set: SetFn; activities: string[] }) {
   return (
     <>
-      <Section mb={18}>
-        <div>
-          <input value={draft.highlight} onChange={e => set("highlight", e.target.value.slice(0, 90))} placeholder="The one moment you'll remember"
-            style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 14px", fontSize: 15, color: "var(--ink)", outline: "none", fontWeight: 600, boxSizing: "border-box", fontFamily: "inherit" }} />
-          <div style={{ ...mono, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6, marginTop: 5, textAlign: "right" }}>{draft.highlight.length} / 90</div>
-        </div>
-      </Section>
-      <Section mb={18}>
-        <div>
-          <textarea value={draft.notes} onChange={e => set("notes", e.target.value.slice(0, 2000))} placeholder="What did you see, hear, feel?"
-            style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 14px", fontSize: 15, color: "var(--ink)", outline: "none", lineHeight: 1.5, minHeight: 130, resize: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
-          <div style={{ ...mono, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6, marginTop: 5, textAlign: "right" }}>{draft.notes.length} / 2000</div>
-        </div>
-      </Section>
+      <div style={{ display: "flex", flexDirection: "column", gap: 18, marginBottom: 18 }}>
+        <Section title="Highlight" mb={0}>
+          <div style={{ position: "relative" }}>
+            <input value={draft.highlight} onChange={e => set("highlight", e.target.value.slice(0, 90))} placeholder="The one moment you'll remember"
+              style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 52px 13px 14px", fontSize: 15, color: "var(--ink)", outline: "none", fontWeight: 600, boxSizing: "border-box", fontFamily: "inherit" }} />
+            <div style={{ ...mono, position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6, pointerEvents: "none" }}>{draft.highlight.length}/90</div>
+          </div>
+        </Section>
+        <Section title="Notes" mb={0}>
+          <div style={{ position: "relative" }}>
+            <textarea value={draft.notes} onChange={e => set("notes", e.target.value.slice(0, 2000))} placeholder="What did you see, hear, feel?"
+              style={{ width: "100%", background: "var(--surface)", border: "0.5px solid var(--hairline)", borderRadius: 14, padding: "13px 14px 28px", fontSize: 15, color: "var(--ink)", outline: "none", lineHeight: 1.5, minHeight: 130, resize: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+            <div style={{ ...mono, position: "absolute", right: 12, bottom: 10, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6, pointerEvents: "none" }}>{draft.notes.length}/2000</div>
+          </div>
+        </Section>
+      </div>
       <Section title="Activities" mb={18}>
-        <ActivityPicker value={draft.activities} onChange={v => set("activities", v)} />
+        <ActivityPicker value={draft.activities} onChange={v => set("activities", v)} options={activities} />
       </Section>
       <Section title="Who came along?" mb={18}>
         <CompanionPicker value={draft.companions} onChange={v => set("companions", v)} />
@@ -982,7 +1137,8 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
   const [visited, setVisited]           = useState<Set<number>>(new Set([0]));
   const [parks, setParks]               = useState<ParkData[]>([]);
   const [showParkPicker, setShowParkPicker] = useState(false);
-  const [submitting, setSubmitting]     = useState(false);
+  const [submitting, setSubmitting]           = useState(false);
+  const [npsActivityCache, setNpsActivityCache] = useState<{ parkCode: string; names: string[] } | null>(null);
   const centerRef = useRef<HTMLDivElement>(null);
 
   const goToStep = useCallback((i: number) => {
@@ -999,11 +1155,30 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
     fetch("/api/parks").then(r => r.ok ? r.json() : []).then(setParks).catch(() => {});
   }, [open]);
 
+
+  useEffect(() => {
+    if (!draft.parkCode) return;
+    let cancelled = false;
+    fetch(`/api/parks/${draft.parkCode}/nps`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { activities?: string[] } | null) => {
+        if (!cancelled) setNpsActivityCache({ parkCode: draft.parkCode, names: data?.activities ?? [] });
+      })
+      .catch(() => { if (!cancelled) setNpsActivityCache({ parkCode: draft.parkCode, names: [] }); });
+    return () => { cancelled = true; };
+  }, [draft.parkCode]);
+
+
   useEffect(() => {
     if (centerRef.current) centerRef.current.scrollTop = 0;
   }, [step]);
 
   const park        = parks.find(p => p.park_code === draft.parkCode);
+  const availableActivities = (() => {
+    if (!npsActivityCache || npsActivityCache.parkCode !== draft.parkCode) return ALL_ACTIVITIES;
+    const matched = matchActivities(npsActivityCache.names);
+    return matched.length ? matched : ALL_ACTIVITIES;
+  })();
   const userName    = user?.fullName ?? user?.username ?? "Explorer";
   const avatarUrl   = user?.imageUrl ?? "";
   const last        = step === STEPS.length - 1;
@@ -1023,6 +1198,13 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
     onClose();
   }, [onClose]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, handleClose]);
+
   const handleSubmit = async () => {
     if (!draft.parkCode || !draft.dates.start) return;
     setSubmitting(true);
@@ -1038,6 +1220,7 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
           notes:        draft.notes    || null,
           photos:       draft.photos.length > 0 ? draft.photos : null,
           visibility:   draft.visibility.toLowerCase(),
+          rating:       draft.rating > 0 ? Math.round(draft.rating) : null,
         }),
       });
       onPosted?.();
@@ -1054,7 +1237,7 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
   const renderStep = (key: string) => {
     if (key === "where")   return <StepWhere   draft={draft} set={set} onOpenPark={() => setShowParkPicker(true)} park={park} />;
     if (key === "rate")    return <StepRate    draft={draft} set={set} />;
-    if (key === "journal") return <StepJournal draft={draft} set={set} />;
+    if (key === "journal") return <StepJournal draft={draft} set={set} activities={availableActivities} />;
     if (key === "share")   return <StepShare   draft={draft} set={set} />;
     return null;
   };
