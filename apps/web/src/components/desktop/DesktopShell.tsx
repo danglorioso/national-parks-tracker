@@ -10,6 +10,7 @@ import {
   Plus, ChevronDown, LogOut, UserCircle, Pencil, Sun, Search,
 } from "lucide-react";
 import { GlobalSpotlight } from "@/components/desktop/GlobalSpotlight";
+import { NotificationCenter } from "@/components/desktop/NotificationCenter";
 import { useTheme, type Palette } from "@/components/ThemeProvider";
 import EditProfileDialog from "@/components/EditProfileDialog";
 import { LogVisitModal } from "@/components/LogVisitModal";
@@ -455,8 +456,13 @@ function DesktopSidebar({ visitedCount, totalCount, bucketCount, onLogVisit, onE
           </div>
         </div>
 
-        {/* Account menu */}
-        <AccountMenu onEditAccount={onEditAccount} />
+        {/* Account menu + notification bell */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <AccountMenu onEditAccount={onEditAccount} />
+          </div>
+          <NotificationCenter />
+        </div>
       </div>
     </aside>
   );
@@ -469,6 +475,7 @@ interface DesktopShellProps {
   fullbleed?: boolean;
   rightRail?: React.ReactNode;
   onLogVisit?: () => void;
+  onOpenSpotlight?: () => void;
 }
 
 export function DesktopShell({
@@ -476,6 +483,7 @@ export function DesktopShell({
   fullbleed = false,
   rightRail,
   onLogVisit,
+  onOpenSpotlight: onOpenSpotlightOverride,
 }: DesktopShellProps) {
   const { user } = useUser();
   const [visitedCount, setVisitedCount] = useState(0);
@@ -486,6 +494,7 @@ export function DesktopShell({
   const [logVisitOpen, setLogVisitOpen] = useState(false);
 
   const handleLogVisit = onLogVisit ?? (() => setLogVisitOpen(true));
+  const handleOpenSpotlight = onOpenSpotlightOverride ?? (() => setSpotlightOpen(true));
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -542,7 +551,7 @@ export function DesktopShell({
         bucketCount={bucketCount}
         onLogVisit={handleLogVisit}
         onEditAccount={() => setEditOpen(true)}
-        onOpenSpotlight={() => setSpotlightOpen(true)}
+        onOpenSpotlight={handleOpenSpotlight}
       />
 
       <div className="flex flex-1 min-w-0 min-h-0" style={{ background: "var(--bg)" }}>

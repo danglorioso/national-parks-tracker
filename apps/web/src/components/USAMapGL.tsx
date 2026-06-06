@@ -21,6 +21,7 @@ interface Props {
   className?: string;
   initialBounds?: [[number, number], [number, number]];
   showControls?: boolean;
+  flyToTarget?: [number, number] | null; // [lat, lng] — changes trigger a flyTo
 }
 
 const VISITED_COLOR = "#2F7A4A";
@@ -265,6 +266,7 @@ export default function USAMapGL({
   className = "h-full w-full",
   initialBounds,
   showControls = true,
+  flyToTarget,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef       = useRef<maplibregl.Map | null>(null);
@@ -331,6 +333,23 @@ export default function USAMapGL({
       map.once("load", update);
     }
   }, [parks, selectedParkCode]);
+
+  // Fly to a park when flyToTarget changes (e.g. selected from search)
+  useEffect(() => {
+    if (!flyToTarget) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const [lat, lng] = flyToTarget;
+    const doFly = () =>
+      map.flyTo({
+        center: [lng, lat],
+        zoom: Math.max(map.getZoom(), 7),
+        duration: 900,
+        essential: true,
+      });
+    if (loadedRef.current) doFly();
+    else map.once("load", doFly);
+  }, [flyToTarget]);
 
   return (
     <div

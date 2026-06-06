@@ -75,6 +75,7 @@ export default function Home() {
   }, [isSignedIn, isLoaded, router]);
 
   const [spotOpen, setSpotOpen] = useState(false);
+  const [flyToTarget, setFlyToTarget] = useState<[number, number] | null>(null);
 
   const fetchParksAndVisits = async () => {
     try {
@@ -259,7 +260,7 @@ export default function Home() {
 
   if (isSignedIn) {
     return (
-      <DesktopShell fullbleed onOpenSpotlight={() => setSpotOpen(true)}>
+      <DesktopShell fullbleed>
         {/* Full-bleed map area with absolute floating panels */}
         <div className="relative h-full w-full" style={{ background: "#E8E2D0" }}>
 
@@ -334,7 +335,12 @@ export default function Home() {
             open={spotOpen}
             onToggle={() => setSpotOpen((s) => !s)}
             onClose={() => setSpotOpen(false)}
-            onPick={(code) => { setSelectedParkCode(code); setSpotOpen(false); }}
+            onPick={(code) => {
+              const park = parks.find((p) => p.park_code === code);
+              if (park) setFlyToTarget([...park.position]);
+              setSelectedParkCode(code);
+              setSpotOpen(false);
+            }}
           />
 
           {/* Right floating panel — park detail peek */}
