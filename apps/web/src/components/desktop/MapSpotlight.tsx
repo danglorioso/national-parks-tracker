@@ -21,7 +21,6 @@ interface Props {
   onToggle: () => void;
   onClose: () => void;
   onPick: (code: string) => void;
-  rightPanelOpen?: boolean;
 }
 
 const STATUS_DOT: Record<ParkStatus, string> = {
@@ -282,7 +281,7 @@ export function MapSpotlight({ parks, open, onToggle, onClose, onPick }: Props) 
       style={{
         position: "absolute",
         top: 16,
-        left: "50%",
+        left: centreLeft,
         transform: "translateX(-50%)",
         zIndex: 30,
         width: 560,
@@ -299,7 +298,7 @@ export function MapSpotlight({ parks, open, onToggle, onClose, onPick }: Props) 
         animation: "pqSpotIn 200ms cubic-bezier(.2,.7,.3,1)",
       }}
     >
-      <style>{`@keyframes pqSpotIn { from { opacity:0; transform:translate(-50%,-6px) scale(0.98) } to { opacity:1; transform:translate(-50%,0) scale(1) } }`}</style>
+      <style>{`@keyframes pqSpotIn { from { opacity:0; transform:translate(-50%,-6px) scale(0.98) } to { opacity:1; transform:translate(-50%,0) scale(1) } } `}</style>
 
       {/* Search input row */}
       <div

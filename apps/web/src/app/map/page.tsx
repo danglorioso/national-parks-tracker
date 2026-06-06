@@ -24,6 +24,7 @@ interface ParkFromDB {
   latitude: string | null;
   longitude: string | null;
   description: string | null;
+  image_url: string | null;
 }
 
 export interface VisitEntry {
@@ -48,6 +49,7 @@ interface ParkForMap {
   photos?: string[] | null;
   visibility?: string | null;
   visits?: VisitEntry[];
+  image_url?: string | null;
 }
 
 
@@ -166,6 +168,7 @@ export default function Home() {
             notes: journal?.notes ?? null,
             photos: journal?.photos ?? null,
             visibility: journal?.visibility ?? null,
+            image_url: park.image_url,
           };
         });
 
@@ -336,7 +339,6 @@ export default function Home() {
             open={spotOpen}
             onToggle={() => setSpotOpen((s) => !s)}
             onClose={() => setSpotOpen(false)}
-            rightPanelOpen={selectedPark !== null}
             onPick={(code) => {
               const park = parks.find((p) => p.park_code === code);
               if (park) setFlyToTarget({ coords: [...park.position] as [number, number], rightPadding: 376 });

@@ -43,6 +43,7 @@ interface Park {
   notes?: string | null;
   photos?: string[] | null;
   visits?: VisitEntry[];
+  image_url?: string | null;
 }
 
 interface Props {
@@ -142,7 +143,9 @@ function CarouselArrow({ dir, onClick }: { dir: "left" | "right"; onClick: (e: R
 }
 
 export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList, onRemoveFromBucketList, onEditVisit }: Props) {
-  const [npsImages, setNpsImages] = useState<LightboxImage[]>([]);
+  const [npsImages, setNpsImages] = useState<LightboxImage[]>(
+    park.image_url ? [{ url: park.image_url }] : []
+  );
   const [imgIdx, setImgIdx]       = useState(0);
   const [lightbox, setLightbox]   = useState<number | null>(null);
   const [closing, setClosing]     = useState(false);
@@ -157,9 +160,6 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
   useEscapeKey(handleClose, lightbox !== null);
 
   useEffect(() => {
-    setNpsImages([]);
-    setImgIdx(0);
-    setNpsData(null);
     fetch(`/api/parks/${park.park_code}/images`)
       .then((r) => r.json())
       .then((data) => {

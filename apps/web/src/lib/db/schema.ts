@@ -10,6 +10,7 @@ export const parks = pgTable('parks', {
   description: text('description'),
   latitude: varchar('latitude', { length: 50 }),
   longitude: varchar('longitude', { length: 50 }),
+  image_url: text('image_url'),
   created_at: timestamp('created_at').defaultNow(),
 });
 

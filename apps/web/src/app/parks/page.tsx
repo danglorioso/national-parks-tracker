@@ -17,6 +17,7 @@ interface Park {
   description: string | null;
   latitude: string | null;
   longitude: string | null;
+  image_url: string | null;
 }
 
 interface Visit {
@@ -131,7 +132,8 @@ function CardSkeleton({ index }: { index: number }) {
 
 // ── ParkCard ──────────────────────────────────────────────────────────────────
 
-function ParkCard({ park, status, coverUrl }: { park: Park; status: "visited" | "bucketList" | "notVisited"; coverUrl?: string }) {
+function ParkCard({ park, status }: { park: Park; status: "visited" | "bucketList" | "notVisited" }) {
+  const [imgFailed, setImgFailed] = useState(false);
   const gradient = parkGradient(park.park_code);
   const stateAbbr = park.states.split(",")[0]?.trim() ?? park.states;
   const state = STATE_NAMES[stateAbbr] ?? stateAbbr;
@@ -158,13 +160,14 @@ function ParkCard({ park, status, coverUrl }: { park: Park; status: "visited" | 
       >
         {/* Cover image / color band */}
         <div style={{ height: 120, position: "relative", background: gradient, overflow: "hidden" }}>
-          {coverUrl && (
+          {park.image_url && !imgFailed && (
             <Image
-              src={coverUrl}
+              src={park.image_url}
               alt={park.name}
               fill
               sizes="320px"
               style={{ objectFit: "cover" }}
+              onError={() => setImgFailed(true)}
             />
           )}
           {/* Gradient overlay so badge stays readable over photos */}
@@ -472,8 +475,6 @@ function ParksPageContent() {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [activitiesMap, setActivitiesMap] = useState<Record<string, string[]>>({});
   const [topicsMap, setTopicsMap] = useState<Record<string, string[]>>({});
-  const [imagesMap, setImagesMap] = useState<Record<string, string>>({});
-  // Track whether the slow NPS-backed filters are still loading
   const [filtersLoading, setFiltersLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -505,15 +506,13 @@ function ParksPageContent() {
       setLoading(false);
     });
 
-    // Activities, topics, images are slow (NPS API) — load lazily in background
+    // Activities and topics are slow (NPS API) — load lazily in background
     Promise.all([
       fetch("/api/parks/activities").then((r) => r.ok ? r.json() : {}),
       fetch("/api/parks/topics").then((r) => r.ok ? r.json() : {}),
-      fetch("/api/parks/images").then((r) => r.ok ? r.json() : {}),
-    ]).then(([a, t, img]) => {
+    ]).then(([a, t]) => {
       setActivitiesMap(a);
       setTopicsMap(t);
-      setImagesMap(img);
       setFiltersLoading(false);
     });
   }, [isSignedIn]);
@@ -654,7 +653,7 @@ function ParksPageContent() {
             ) : filtered.length > 0 ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14 }}>
                 {filtered.map((park) => (
-                  <ParkCard key={park.park_code} park={park} status={parkStatus(park.park_code, visits)} coverUrl={imagesMap[park.park_code]} />
+                  <ParkCard key={park.park_code} park={park} status={parkStatus(park.park_code, visits)} />
                 ))}
               </div>
             ) : (
