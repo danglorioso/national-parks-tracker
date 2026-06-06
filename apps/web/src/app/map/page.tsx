@@ -185,7 +185,7 @@ export default function Home() {
         setSpotOpen((s) => !s);
       } else if (e.key === 'Escape') {
         setSpotOpen(false);
-        setSelectedParkCode(null);
+        // Panel closes itself via its own Escape handler (lightbox-aware)
       }
     };
     window.addEventListener('keydown', onKey);

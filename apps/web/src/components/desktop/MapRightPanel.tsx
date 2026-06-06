@@ -54,15 +54,15 @@ interface Props {
   onEditVisit: () => void;
 }
 
-function useEscapeKey(onClose: () => void) {
+function useEscapeKey(onClose: () => void, blocked: boolean) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !blocked) onClose();
     };
     // Capture phase fires before MapLibre GL can stop propagation
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [onClose]);
+  }, [onClose, blocked]);
 }
 
 function parkGradient(code: string): string {
@@ -154,7 +154,7 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
     setTimeout(onClose, 190);
   }, [onClose]);
 
-  useEscapeKey(handleClose);
+  useEscapeKey(handleClose, lightbox !== null);
 
   useEffect(() => {
     setNpsImages([]);
