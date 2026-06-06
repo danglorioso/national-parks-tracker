@@ -223,6 +223,7 @@ export function NotificationCenter() {
           align="end"
           sideOffset={8}
           avoidCollisions
+          collisionPadding={{ left: 12 }}
           style={{
             width: 320,
             background: "rgba(255,251,241,0.98)",
