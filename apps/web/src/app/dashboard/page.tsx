@@ -7,9 +7,10 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
   MapPin, Bookmark, Award, Mountain,
-  ChevronRight,
+  Plus, ChevronRight,
 } from "lucide-react";
 import { DesktopShell, AccountMenu } from "@/components/desktop/DesktopShell";
+import { DesktopButton } from "@/components/desktop/DesktopButton";
 import type { MapPark } from "@/components/USAMapGL";
 import EditProfileDialog from "@/components/EditProfileDialog";
 
@@ -148,7 +149,7 @@ function BigStat({
   total?: string;
   unit?: string;
   color: string;
-  delta: string;
+  delta: React.ReactNode;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>;
   loading?: boolean;
 }) {
@@ -433,7 +434,7 @@ export default function DashboardPage() {
         <div
           style={{
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: "center",
             justifyContent: "space-between",
             marginBottom: 22,
           }}
@@ -522,7 +523,7 @@ export default function DashboardPage() {
             kicker="BUCKET LIST"
             value={bucketCount}
             color="var(--bucket)"
-            delta="add more parks"
+            delta={<Link href="/parks" style={{ color: "var(--ink-mute)", textDecoration: "none", fontWeight: 600 }} onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--bucket)"; }} onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--ink-mute)"; }}>Browse parks →</Link>}
             icon={Bookmark}
             loading={!isReady}
           />
