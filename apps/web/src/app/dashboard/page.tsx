@@ -561,7 +561,7 @@ export default function DashboardPage() {
             fullbleed
             action={
               <Link href="/map" style={{ textDecoration: "none" }}>
-                <DesktopButton ghost size="sm">
+                <DesktopButton size="sm">
                   Open map →
                 </DesktopButton>
               </Link>
@@ -635,7 +635,7 @@ export default function DashboardPage() {
             title="What's new"
             action={
               <Link href="/feed" style={{ textDecoration: "none" }}>
-                <DesktopButton ghost size="sm">View all</DesktopButton>
+                <DesktopButton size="sm">View all</DesktopButton>
               </Link>
             }
           >
@@ -652,7 +652,7 @@ export default function DashboardPage() {
             title="Trips on deck"
             action={
               <Link href="/planner" style={{ textDecoration: "none" }}>
-                <DesktopButton ghost size="sm">
+                <DesktopButton size="sm">
                   <Plus size={13} strokeWidth={2.2} /> New trip
                 </DesktopButton>
               </Link>
@@ -735,7 +735,7 @@ export default function DashboardPage() {
             title="Closest unlocks"
             action={
               <Link href="/badges" style={{ textDecoration: "none" }}>
-                <DesktopButton ghost size="sm">All badges</DesktopButton>
+                <DesktopButton size="sm">All badges</DesktopButton>
               </Link>
             }
           >
