@@ -41,7 +41,11 @@ if (!res.ok) throw new Error(`NPS API error: ${res.status}`);
 const { data: npsParks } = await res.json();
 console.log(`Got ${npsParks.length} parks from NPS`);
 
-// Build a map of parkCode → first image URL (undefined = NPS has no images)
+// Parks stored separately in our DB that share a single NPS code.
+// Must stay in sync with src/lib/npsCodeMap.ts.
+const NPS_CODE_OVERRIDES = { sequ: "seki", king: "seki" };
+
+// Build a map of parkCode → first image URL (null = NPS has no images for this code)
 const npsImageMap = new Map();
 for (const park of npsParks) {
   npsImageMap.set(park.parkCode, park.images?.[0]?.url ?? null);
@@ -56,7 +60,9 @@ let cleared = 0;
 for (const row of dbParks) {
   const code = row.park_code;
   const currentUrl = row.image_url;
-  const npsUrl = npsImageMap.get(code) ?? null;
+  // Translate our local code to the NPS code before looking up the image
+  const npsCode = NPS_CODE_OVERRIDES[code] ?? code;
+  const npsUrl = npsImageMap.get(npsCode) ?? null;
 
   if (npsUrl === currentUrl) continue; // nothing changed
 
