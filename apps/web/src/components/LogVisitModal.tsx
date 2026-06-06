@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useReducer, useRef, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { ArrowRight, Check, ChevronLeft, ChevronRight, Eye, Globe, Lock, MapPin, Search, Star, Upload, Users, X } from "lucide-react";
 import { LightboxModal } from "@/components/LightboxModal";
@@ -50,7 +50,7 @@ interface DateRange { start: Date | null; end: Date | null; }
 interface WeatherState { conds: string[]; }
 interface FollowUser { clerk_user_id: string; username: string; display_name?: string | null; avatar_url: string | null; }
 
-interface VisitDraft {
+export interface VisitDraft {
   parkCode: string;
   dates: DateRange;
   title: string;
@@ -908,12 +908,15 @@ function PhotoUploader({ photos, cover, onAddPhotos, onRemove, onSetCover }: {
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploading(true);
+    setUploadError(null);
     const urls: string[] = [];
+    let failed = 0;
     for (const file of Array.from(files).slice(0, 10 - photos.length)) {
       try {
         const presignRes = await fetch("/api/upload/presign", {
@@ -921,19 +924,25 @@ function PhotoUploader({ photos, cover, onAddPhotos, onRemove, onSetCover }: {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
         });
-        if (!presignRes.ok) { urls.push(URL.createObjectURL(file)); continue; }
+        if (!presignRes.ok) {
+          const err = await presignRes.json().catch(() => ({}));
+          throw new Error(err.error ?? `Presign failed (${presignRes.status})`);
+        }
         const { uploadUrl, publicUrl } = await presignRes.json();
         const uploadRes = await fetch(uploadUrl, {
           method: "PUT",
           headers: { "Content-Type": file.type },
           body: file,
         });
-        urls.push(uploadRes.ok ? publicUrl : URL.createObjectURL(file));
-      } catch {
-        urls.push(URL.createObjectURL(file));
+        if (!uploadRes.ok) throw new Error(`Upload failed (${uploadRes.status})`);
+        urls.push(publicUrl);
+      } catch (e) {
+        failed++;
+        console.error("Photo upload error:", e);
       }
     }
     if (urls.length) onAddPhotos(urls);
+    if (failed > 0) setUploadError(`${failed} photo${failed > 1 ? "s" : ""} failed to upload. Check your R2 configuration.`);
     setUploading(false);
   };
 
@@ -972,15 +981,21 @@ function PhotoUploader({ photos, cover, onAddPhotos, onRemove, onSetCover }: {
         />
       )}
 
+      {uploadError && (
+        <div style={{ background: "rgba(192,64,64,0.08)", border: "0.5px solid rgba(192,64,64,0.3)", borderRadius: 10, padding: "9px 12px", marginBottom: 10, fontSize: 12.5, color: "#C04040", lineHeight: 1.4 }}>
+          {uploadError}
+        </div>
+      )}
+
       {photos.length < 10 && (
         <div
           onClick={() => fileRef.current?.click()}
           onDragOver={e => e.preventDefault()}
           onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
-          style={{ border: "1.5px dashed var(--hairline)", borderRadius: 14, padding: "20px 16px", background: "var(--surface-alt)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer" }}
+          style={{ border: `1.5px dashed ${uploading ? "var(--primary)" : "var(--hairline)"}`, borderRadius: 14, padding: "20px 16px", background: "var(--surface-alt)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: uploading ? "default" : "pointer" }}
         >
           <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--surface)", border: "0.5px solid var(--hairline)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Upload style={{ width: 20, height: 20, color: "var(--primary)" }} strokeWidth={2} />
+            <Upload style={{ width: 20, height: 20, color: uploading ? "var(--ink-mute)" : "var(--primary)" }} strokeWidth={2} />
           </div>
           <div style={{ fontWeight: 700, fontSize: 13.5, color: "var(--ink)", textAlign: "center" }}>
             {uploading ? "Uploading…" : <>Drop photos or <span style={{ color: "var(--primary)" }}>browse</span></>}
@@ -988,7 +1003,7 @@ function PhotoUploader({ photos, cover, onAddPhotos, onRemove, onSetCover }: {
           <div style={{ ...mono, fontSize: 9.5, color: "var(--ink-mute)", letterSpacing: 0.6 }}>
             JPG · PNG · HEIC · up to {10 - photos.length} more
           </div>
-          <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => handleFiles(e.target.files)} />
+          <input ref={fileRef} type="file" accept="image/*" multiple disabled={uploading} style={{ display: "none" }} onChange={e => handleFiles(e.target.files)} />
         </div>
       )}
     </div>
@@ -1253,38 +1268,100 @@ function StepShare({ draft, set }: { draft: VisitDraft; set: SetFn }) {
   );
 }
 
+// ── Session reducer (avoids multiple setState calls in a single effect) ────────
+
+type SessionState = {
+  draft: VisitDraft;
+  step: number;
+  visited: Set<number>;
+  showExitConfirm: boolean;
+};
+
+type SessionAction =
+  | { type: 'open'; draft: VisitDraft; editMode: boolean }
+  | { type: 'set-field'; key: keyof VisitDraft; value: VisitDraft[keyof VisitDraft] }
+  | { type: 'set-draft'; draft: VisitDraft }
+  | { type: 'go-to-step'; step: number }
+  | { type: 'show-exit-confirm' }
+  | { type: 'hide-exit-confirm' };
+
+function sessionReducer(state: SessionState, action: SessionAction): SessionState {
+  switch (action.type) {
+    case 'open':
+      return {
+        draft: action.draft,
+        step: 0,
+        visited: action.editMode ? new Set([0, 1, 2, 3]) : new Set([0]),
+        showExitConfirm: false,
+      };
+    case 'set-field':
+      return { ...state, draft: { ...state.draft, [action.key]: action.value } };
+    case 'set-draft':
+      return { ...state, draft: action.draft };
+    case 'go-to-step':
+      return { ...state, step: action.step, visited: new Set([...state.visited, action.step]) };
+    case 'show-exit-confirm':
+      return { ...state, showExitConfirm: true };
+    case 'hide-exit-confirm':
+      return { ...state, showExitConfirm: false };
+  }
+}
+
 // ── Main modal ─────────────────────────────────────────────────────────────
 
 type SetFn = <K extends keyof VisitDraft>(k: K, v: VisitDraft[K]) => void;
 
-interface LogVisitModalProps { open: boolean; onClose: () => void; onPosted?: () => void; }
+interface LogVisitModalProps {
+  open: boolean;
+  onClose: () => void;
+  onPosted?: () => void;
+  initialDraft?: Partial<VisitDraft>;
+  editMode?: boolean;
+}
 
-export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
+export function LogVisitModal({ open, onClose, onPosted, initialDraft, editMode = false }: LogVisitModalProps) {
   const { user } = useUser();
-  const [draft, setDraft]               = useState<VisitDraft>(makeBlankDraft);
-  const [step, setStep]                 = useState(0);
-  const [visited, setVisited]           = useState<Set<number>>(new Set([0]));
+  const [session, dispatch] = useReducer(sessionReducer, undefined, () => ({
+    draft: makeBlankDraft(),
+    step: 0,
+    visited: new Set([0]) as Set<number>,
+    showExitConfirm: false,
+  }));
+  const { draft, step, visited, showExitConfirm } = session;
+
   const [parks, setParks]               = useState<ParkData[]>([]);
   const [showParkPicker, setShowParkPicker] = useState(false);
   const [submitting, setSubmitting]           = useState(false);
   const [npsActivityCache, setNpsActivityCache] = useState<{ parkCode: string; names: string[] } | null>(null);
-  const [showExitConfirm, setShowExitConfirm]   = useState(false);
   const [restoreBannerDraft, setRestoreBannerDraft] = useState<SavedDraft | null>(
     () => { const d = loadDrafts(); return d.length > 0 ? d[0] : null; }
   );
-  const draftId   = useRef<string>("");
+  const draftId   = useRef("");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const centerRef = useRef<HTMLDivElement>(null);
-  // Assign a fresh draft ID at the start of each session (reset in handleClose)
-  if (!draftId.current) draftId.current = `draft-${Date.now()}`;
+  const isDirty   = useRef(false);
+
+  // Single dispatch on open — avoids multiple setState calls in one effect
+  useEffect(() => {
+    if (open) {
+      draftId.current = `draft-${Date.now()}`;
+      isDirty.current = false;
+      dispatch({
+        type: 'open',
+        draft: initialDraft ? { ...makeBlankDraft(), ...initialDraft } : makeBlankDraft(),
+        editMode,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const goToStep = useCallback((i: number) => {
-    setStep(i);
-    setVisited(v => new Set([...v, i]));
+    dispatch({ type: 'go-to-step', step: i });
   }, []);
 
   const set = useCallback(<K extends keyof VisitDraft>(k: K, v: VisitDraft[K]) => {
-    setDraft(d => ({ ...d, [k]: v }));
+    isDirty.current = true;
+    dispatch({ type: 'set-field', key: k, value: v });
   }, []) as SetFn;
 
   useEffect(() => {
@@ -1328,23 +1405,22 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
   const isStepDone = (i: number) => visited.has(i) && stepComplete(i);
 
   const handleClose = useCallback(() => {
-    setDraft(makeBlankDraft());
-    setStep(0);
-    setVisited(new Set([0]));
-    setShowExitConfirm(false);
+    dispatch({ type: 'open', draft: makeBlankDraft(), editMode: false });
     draftId.current = "";
+    isDirty.current = false;
     const nextDrafts = loadDrafts();
     setRestoreBannerDraft(nextDrafts.length > 0 ? nextDrafts[0] : null);
     onClose();
   }, [onClose]);
 
   const handleRequestClose = useCallback(() => {
-    if (draftHasContent(draft)) {
-      setShowExitConfirm(true);
+    const shouldWarn = editMode ? isDirty.current : draftHasContent(draft);
+    if (shouldWarn) {
+      dispatch({ type: 'show-exit-confirm' });
     } else {
       handleClose();
     }
-  }, [draft, handleClose]);
+  }, [draft, editMode, handleClose]);
 
   const handleSaveAsDraft = useCallback(() => {
     const parkName = parks.find(p => p.park_code === draft.parkCode)?.name;
@@ -1357,18 +1433,30 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
     if (!draft.parkCode || !draft.dates.start) return;
     setSubmitting(true);
     try {
+      // In edit mode, if the park changed, remove the old visit record first
+      if (editMode && initialDraft?.parkCode && initialDraft.parkCode !== draft.parkCode) {
+        await fetch(`/api/visits?park_code=${initialDraft.parkCode}`, { method: "DELETE" });
+      }
       await fetch("/api/visits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          park_code:    draft.parkCode,
-          visited_date: draft.dates.start.toISOString(),
-          end_date:     draft.dates.end?.toISOString() ?? null,
-          title:        draft.title    || null,
-          notes:        draft.notes    || null,
-          photos:       draft.photos.length > 0 ? draft.photos : null,
-          visibility:   draft.visibility.toLowerCase(),
-          rating:       draft.rating > 0 ? Math.round(draft.rating) : null,
+          park_code:          draft.parkCode,
+          visited_date:       draft.dates.start.toISOString(),
+          end_date:           draft.dates.end?.toISOString() ?? null,
+          rating:             draft.rating > 0 ? draft.rating : null,
+          crowd:              draft.crowd > 0 ? draft.crowd : null,
+          difficulty:         draft.difficulty > 0 ? draft.difficulty : null,
+          weather_conditions: draft.weather.conds.length > 0 ? draft.weather.conds : null,
+          activities:         draft.activities.length > 0 ? draft.activities : null,
+          companions:         draft.companions.length > 0 ? draft.companions : null,
+          would_return:       draft.wouldReturn ?? null,
+          highlight:          draft.highlight || null,
+          title:              draft.title || null,
+          notes:              draft.notes || null,
+          photos:             draft.photos.length > 0 ? draft.photos : null,
+          cover_photo:        draft.cover ?? null,
+          visibility:         draft.visibility.toLowerCase(),
         }),
       });
       onPosted?.();
@@ -1401,8 +1489,8 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
 
         {/* ── Left: step nav ─────────────────────────────── */}
         <div style={{ width: 248, flexShrink: 0, background: "rgba(245,239,224,0.5)", borderRight: "0.5px solid var(--hairline)", padding: "22px 16px", display: "flex", flexDirection: "column" }}>
-          <Kicker>NEW ENTRY</Kicker>
-          <div style={{ fontWeight: 800, fontSize: 22, color: "var(--ink)", letterSpacing: -0.4, marginTop: 4, marginBottom: 20 }}>Log a visit</div>
+          <Kicker>{editMode ? "EDIT ENTRY" : "NEW ENTRY"}</Kicker>
+          <div style={{ fontWeight: 800, fontSize: 22, color: "var(--ink)", letterSpacing: -0.4, marginTop: 4, marginBottom: 20 }}>{editMode ? "Edit entry" : "Log a visit"}</div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {STEPS.map((s, i) => {
@@ -1442,7 +1530,7 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
           </div>
 
           <div ref={centerRef} style={{ flex: 1, overflowY: "auto", padding: "20px 28px 24px" }}>
-            {restoreBannerDraft && (
+            {restoreBannerDraft && !editMode && (
               <div style={{ background: "rgba(31,61,46,0.07)", border: "0.5px solid rgba(31,61,46,0.18)", borderRadius: 12, padding: "11px 14px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)" }}>You have a saved draft</div>
@@ -1450,7 +1538,7 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
                     {restoreBannerDraft.parkName ?? "No park selected"}{restoreBannerDraft.draft.title ? ` — ${restoreBannerDraft.draft.title}` : ""} · {draftAge(restoreBannerDraft.savedAt)}
                   </div>
                 </div>
-                <button onClick={() => { setDraft(restoreBannerDraft.draft); draftId.current = restoreBannerDraft.id; setRestoreBannerDraft(null); }} style={{ padding: "7px 14px", borderRadius: 8, border: 0, background: "var(--primary)", color: "#FFFBF1", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                <button onClick={() => { dispatch({ type: 'set-draft', draft: restoreBannerDraft.draft }); draftId.current = restoreBannerDraft.id; setRestoreBannerDraft(null); }} style={{ padding: "7px 14px", borderRadius: 8, border: 0, background: "var(--primary)", color: "#FFFBF1", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
                   Restore
                 </button>
                 <button onClick={() => setRestoreBannerDraft(null)} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--ink-mute)", lineHeight: 0, padding: 4, flexShrink: 0 }}>
@@ -1475,7 +1563,7 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
             <button onClick={() => { if (last) handleSubmit(); else if (canContinue) goToStep(step + 1); }} disabled={!canContinue || submitting}
               style={{ padding: "11px 20px", borderRadius: 10, border: 0, background: canContinue ? "var(--primary)" : "var(--surface-alt)", color: canContinue ? "#FFFBF1" : "var(--ink-mute)", fontWeight: 800, fontSize: 13, cursor: canContinue && !submitting ? "pointer" : "default", display: "flex", alignItems: "center", gap: 7, fontFamily: "inherit", boxShadow: canContinue ? "0 4px 12px rgba(31,61,46,0.35)" : "none", opacity: submitting ? 0.7 : 1 }}>
               {last
-                ? <><Check style={{ width: 15, height: 15 }} strokeWidth={2.6} /> {submitting ? "Posting…" : "Post entry"}</>
+                ? <><Check style={{ width: 15, height: 15 }} strokeWidth={2.6} /> {submitting ? (editMode ? "Saving…" : "Posting…") : (editMode ? "Save changes" : "Post entry")}</>
                 : <>Continue <ArrowRight style={{ width: 15, height: 15 }} strokeWidth={2.4} /></>
               }
             </button>
@@ -1502,16 +1590,24 @@ export function LogVisitModal({ open, onClose, onPosted }: LogVisitModalProps) {
         {showExitConfirm && (
           <div style={{ position: "absolute", inset: 0, zIndex: 130, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ background: "var(--bg)", borderRadius: 16, padding: "28px", width: 360, border: "0.5px solid var(--hairline)", boxShadow: "0 16px 40px rgba(0,0,0,0.35)" }}>
-              <div style={{ fontWeight: 800, fontSize: 18, color: "var(--ink)", letterSpacing: -0.3, marginBottom: 6 }}>Leave without saving?</div>
-              <div style={{ fontSize: 13, color: "var(--ink-mute)", lineHeight: 1.5, marginBottom: 22 }}>Your changes haven&apos;t been posted yet. Save a draft to come back to them later.</div>
+              <div style={{ fontWeight: 800, fontSize: 18, color: "var(--ink)", letterSpacing: -0.3, marginBottom: 6 }}>
+                {editMode ? "Discard changes?" : "Leave without saving?"}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--ink-mute)", lineHeight: 1.5, marginBottom: 22 }}>
+                {editMode
+                  ? "Your edits haven’t been saved yet."
+                  : "Your changes haven’t been posted yet. Save a draft to come back to them later."}
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button onClick={handleSaveAsDraft} style={{ padding: "12px", borderRadius: 10, border: 0, background: "var(--primary)", color: "#FFFBF1", fontWeight: 800, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" }}>
-                  Save as draft
-                </button>
-                <button onClick={() => { setShowExitConfirm(false); handleClose(); }} style={{ padding: "12px", borderRadius: 10, border: "0.5px solid var(--hairline)", background: "transparent", color: "var(--ink)", fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" }}>
+                {!editMode && (
+                  <button onClick={handleSaveAsDraft} style={{ padding: "12px", borderRadius: 10, border: 0, background: "var(--primary)", color: "#FFFBF1", fontWeight: 800, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" }}>
+                    Save as draft
+                  </button>
+                )}
+                <button onClick={() => { dispatch({ type: 'hide-exit-confirm' }); handleClose(); }} style={{ padding: "12px", borderRadius: 10, border: editMode ? 0 : "0.5px solid var(--hairline)", background: editMode ? "#C04040" : "transparent", color: editMode ? "#FFFBF1" : "var(--ink)", fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" }}>
                   Discard changes
                 </button>
-                <button onClick={() => setShowExitConfirm(false)} style={{ padding: "9px", borderRadius: 10, border: 0, background: "transparent", color: "var(--ink-mute)", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                <button onClick={() => dispatch({ type: 'hide-exit-confirm' })} style={{ padding: "9px", borderRadius: 10, border: 0, background: "transparent", color: "var(--ink-mute)", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
                   Keep editing
                 </button>
               </div>

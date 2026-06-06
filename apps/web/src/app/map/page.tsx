@@ -9,8 +9,8 @@ import { DesktopShell } from "@/components/desktop/DesktopShell";
 import { type FilterStatus } from "@/components/desktop/MapLeftPanel";
 import { MapRightPanel } from "@/components/desktop/MapRightPanel";
 import { MapSpotlight } from "@/components/desktop/MapSpotlight";
-import VisitDateDialog, { type JournalData } from "@/components/VisitDateDialog";
-import EditVisitDialog from "@/components/EditVisitDialog";
+import { LogVisitModal } from "@/components/LogVisitModal";
+import type { VisitDraft } from "@/components/LogVisitModal";
 
 const USAMap = dynamic(() => import("@/components/USAMapGL"), {
   ssr: false,
@@ -57,10 +57,9 @@ export default function Home() {
 
   const [parks, setParks] = useState<ParkForMap[]>([]);
   const [visitedParksCount, setVisitedParksCount] = useState(0);
-  const [showVisitDateDialog, setShowVisitDateDialog] = useState(false);
-  const [pendingParkCode, setPendingParkCode] = useState<string | null>(null);
-  const [pendingParkName, setPendingParkName] = useState<string>("");
-  const [pendingEdit, setPendingEdit] = useState<ParkForMap | null>(null);
+  const [logVisitOpen, setLogVisitOpen] = useState(false);
+  const [logVisitDraft, setLogVisitDraft] = useState<Partial<VisitDraft> | undefined>(undefined);
+  const [logVisitEditMode, setLogVisitEditMode] = useState(false);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [selectedParkCode, setSelectedParkCode] = useState<string | null>(null);
 
@@ -194,42 +193,9 @@ export default function Home() {
   }, []);
 
   const handleMarkVisited = (parkCode: string) => {
-    const park = parks.find(p => p.park_code === parkCode);
-    if (park) {
-      setPendingParkCode(parkCode);
-      setPendingParkName(park.name);
-      setShowVisitDateDialog(true);
-    }
-  };
-
-  const handleConfirmVisitDate = async (startDate: Date, endDate: Date | undefined, journal: JournalData) => {
-    if (!pendingParkCode) return;
-    const park = parks.find(p => p.park_code === pendingParkCode);
-    const wasAlreadyVisited = park?.status === 'visited';
-    try {
-      const response = await fetch('/api/visits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          park_code: pendingParkCode,
-          is_bucket_list: false,
-          visited_date: startDate.toISOString(),
-          end_date: endDate?.toISOString() ?? null,
-          title: journal.title,
-          notes: journal.notes,
-          photos: journal.photos,
-          visibility: journal.visibility,
-        }),
-      });
-      if (!response.ok) throw new Error('Failed to mark park as visited');
-      if (!wasAlreadyVisited) setVisitedParksCount(prev => prev + 1);
-      await fetchParksAndVisits();
-    } catch (error) {
-      console.error('Error marking park as visited:', error);
-    } finally {
-      setPendingParkCode(null);
-      setPendingParkName("");
-    }
+    setLogVisitDraft({ parkCode });
+    setLogVisitEditMode(false);
+    setLogVisitOpen(true);
   };
 
   const handleAddToBucketList = async (parkCode: string) => {
@@ -260,37 +226,23 @@ export default function Home() {
     }
   };
 
-  const handleEditVisit = async (parkCode: string, startDate: Date, endDate: Date | undefined, journal: JournalData) => {
-    const res = await fetch('/api/visits', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        park_code: parkCode,
-        is_bucket_list: false,
-        visited_date: startDate.toISOString(),
-        end_date: endDate?.toISOString() ?? null,
-        title: journal.title,
-        notes: journal.notes,
-        photos: journal.photos,
-        visibility: journal.visibility,
-      }),
+  const handleEditVisit = (park: ParkForMap) => {
+    setLogVisitDraft({
+      parkCode: park.park_code,
+      dates: {
+        start: park.visitedDate ? new Date(park.visitedDate) : null,
+        end: park.visitedEndDate ? new Date(park.visitedEndDate) : null,
+      },
+      title: park.title ?? "",
+      notes: park.notes ?? "",
+      photos: park.photos ?? [],
+      cover: park.photos?.[0] ?? null,
+      visibility: (park.visibility
+        ? park.visibility.charAt(0).toUpperCase() + park.visibility.slice(1)
+        : "Private") as "Private" | "Friends" | "Public",
     });
-    if (!res.ok) return;
-    setPendingEdit(null);
-    await fetchParksAndVisits();
-  };
-
-  const handleMarkNotVisited = async (parkCode: string) => {
-    try {
-      const response = await fetch(`/api/visits?park_code=${parkCode}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to mark park as unvisited');
-      setParks(prev => prev.map(p =>
-        p.park_code === parkCode ? { ...p, status: 'notVisited' as const, visitedDate: null, visits: [] } : p
-      ));
-      setVisitedParksCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Error marking park as unvisited:', error);
-    }
+    setLogVisitEditMode(true);
+    setLogVisitOpen(true);
   };
 
   const bucketListCount = parks.filter(p => p.status === 'bucketList').length;
@@ -392,37 +344,18 @@ export default function Home() {
               onMarkVisited={() => handleMarkVisited(selectedPark.park_code)}
               onAddToBucketList={() => handleAddToBucketList(selectedPark.park_code)}
               onRemoveFromBucketList={() => handleRemoveFromBucketList(selectedPark.park_code)}
-              onEditVisit={() => setPendingEdit(selectedPark)}
+              onEditVisit={() => handleEditVisit(selectedPark)}
             />
           )}
         </div>
 
-        <VisitDateDialog
-          open={showVisitDateDialog}
-          onOpenChange={setShowVisitDateDialog}
-          parkName={pendingParkName}
-          onConfirm={handleConfirmVisitDate}
+        <LogVisitModal
+          open={logVisitOpen}
+          onClose={() => { setLogVisitOpen(false); setLogVisitDraft(undefined); setLogVisitEditMode(false); }}
+          onPosted={fetchParksAndVisits}
+          initialDraft={logVisitDraft}
+          editMode={logVisitEditMode}
         />
-        {pendingEdit && (
-          <EditVisitDialog
-            open={!!pendingEdit}
-            onOpenChange={(open) => { if (!open) setPendingEdit(null); }}
-            parkName={pendingEdit.name}
-            existing={{
-              visitedDate: pendingEdit.visitedDate ?? new Date().toISOString(),
-              endDate: pendingEdit.visitedEndDate,
-              title: pendingEdit.title,
-              notes: pendingEdit.notes,
-              photos: pendingEdit.photos,
-              visibility: pendingEdit.visibility,
-            }}
-            onSave={(startDate, endDate, journal) => handleEditVisit(pendingEdit.park_code, startDate, endDate, journal)}
-            onDelete={async () => {
-              await handleMarkNotVisited(pendingEdit.park_code);
-              setPendingEdit(null);
-            }}
-          />
-        )}
       </DesktopShell>
     );
   }

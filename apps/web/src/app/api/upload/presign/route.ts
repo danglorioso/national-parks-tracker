@@ -8,6 +8,10 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "i
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export async function POST(req: Request) {
+  if (!process.env.CLOUDFLARE_R2_ACCOUNT_ID || !process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || !process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY) {
+    return NextResponse.json({ error: "R2 not configured — fill in CLOUDFLARE_R2_* env vars" }, { status: 503 });
+  }
+
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

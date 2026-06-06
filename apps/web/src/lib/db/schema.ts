@@ -30,9 +30,17 @@ export const visits = pgTable('visits', {
   visited_date: timestamp('visited_date'), // null = bucket list item
   end_date: timestamp('end_date'),         // null = single-day visit
   rating: integer('rating'),
+  crowd: integer('crowd'),                 // 1-5 scale
+  difficulty: integer('difficulty'),       // 1-5 scale
+  weather_conditions: jsonb('weather_conditions').$type<string[]>(),
+  activities: jsonb('activities').$type<string[]>(),
+  companions: jsonb('companions').$type<string[]>(), // clerk_user_ids
+  would_return: varchar('would_return', { length: 10 }), // 'yes' | 'maybe' | 'no'
+  highlight: text('highlight'),
   title: varchar('title', { length: 255 }),
   notes: text('notes'),
-  photos: jsonb('photos'),
+  photos: jsonb('photos').$type<string[]>(),
+  cover_photo: text('cover_photo'),
   visibility: varchar('visibility', { length: 20 }).default('private'), // 'public' | 'friends' | 'private'
   is_bucket_list: boolean('is_bucket_list').default(false),
   created_at: timestamp('created_at').defaultNow(),

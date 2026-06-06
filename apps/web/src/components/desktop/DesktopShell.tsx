@@ -74,7 +74,7 @@ const NAV = [
 
 // ── AccountMenu ───────────────────────────────────────────────────────────────
 
-function AccountMenu({ onEditAccount }: { onEditAccount: () => void }) {
+export function AccountMenu({ onEditAccount, compact = false }: { onEditAccount: () => void; compact?: boolean }) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
@@ -118,17 +118,24 @@ function AccountMenu({ onEditAccount }: { onEditAccount: () => void }) {
     { icon: LogOut,     label: "Sign out", danger: true, onClick: () => { setOpen(false); signOut(() => router.push("/")); } },
   ];
 
+  const avatar = avatarUrl ? (
+    <img src={avatarUrl} alt={name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+  ) : (
+    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--surface-alt)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, color: "var(--ink-mute)" }}>
+      {name[0]?.toUpperCase()}
+    </div>
+  );
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      {/* Resting pill */}
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          width: "100%",
+          width: compact ? "auto" : "100%",
           background: open ? "rgba(31,61,46,0.06)" : "transparent",
           border: `0.5px solid ${open ? "var(--hairline)" : "transparent"}`,
           borderRadius: 12,
-          padding: "8px 10px 8px 8px",
+          padding: compact ? "5px 8px 5px 5px" : "8px 10px 8px 8px",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
@@ -137,31 +144,27 @@ function AccountMenu({ onEditAccount }: { onEditAccount: () => void }) {
           transition: "background 120ms",
         }}
       >
-        {avatarUrl ? (
-          <img src={avatarUrl} alt={name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-        ) : (
-          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--surface-alt)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, color: "var(--ink-mute)" }}>
-            {name[0]?.toUpperCase()}
+        {avatar}
+        {!compact && (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 12.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+            {handle && <div style={{ fontSize: 11, color: "var(--ink-mute)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{handle}</div>}
           </div>
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 12.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
-          {handle && <div style={{ fontSize: 11, color: "var(--ink-mute)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{handle}</div>}
-        </div>
         <ChevronDown
           style={{ width: 13, height: 13, color: "var(--ink-mute)", flexShrink: 0, transform: open ? "rotate(180deg)" : "rotate(0)", transition: "transform 160ms" }}
           strokeWidth={2.2}
         />
       </button>
 
-      {/* Dropdown panel — opens upward */}
+      {/* Dropdown panel — opens upward in sidebar, downward when compact */}
       {open && (
         <div
           style={{
             position: "absolute",
-            bottom: "calc(100% + 8px)",
-            left: 0,
-            right: 0,
+            ...(compact
+              ? { top: "calc(100% + 8px)", right: 0, width: 220 }
+              : { bottom: "calc(100% + 8px)", left: 0, right: 0 }),
             background: "rgba(255,251,241,0.98)",
             backdropFilter: "blur(24px) saturate(160%)",
             WebkitBackdropFilter: "blur(24px) saturate(160%)",
@@ -170,11 +173,12 @@ function AccountMenu({ onEditAccount }: { onEditAccount: () => void }) {
             padding: 5,
             boxShadow: "0 12px 40px rgba(0,0,0,0.28)",
             zIndex: 50,
-            animation: "pqAccMenu 160ms cubic-bezier(.2,.7,.3,1)",
+            animation: `${compact ? "pqAccMenuDown" : "pqAccMenu"} 160ms cubic-bezier(.2,.7,.3,1)`,
           }}
         >
           <style>{`
             @keyframes pqAccMenu { from { opacity: 0; transform: translateY(4px) scale(0.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
+            @keyframes pqAccMenuDown { from { opacity: 0; transform: translateY(-4px) scale(0.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
             .pq-menu-item:hover { background: rgba(31,61,46,0.06) !important; }
           `}</style>
 
@@ -529,7 +533,6 @@ export function DesktopShell({
         open={editOpen}
         onOpenChange={setEditOpen}
         onSaved={() => { void user?.reload(); }}
-        overlayLeft={232}
       />
       <GlobalSpotlight open={spotlightOpen} onClose={() => setSpotlightOpen(false)} />
       <LogVisitModal open={logVisitOpen} onClose={() => setLogVisitOpen(false)} />

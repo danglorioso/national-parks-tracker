@@ -8,10 +8,11 @@ import {
   MapPin, Bookmark, Award, Mountain,
   Plus, Compass, ChevronRight,
 } from "lucide-react";
-import { DesktopShell } from "@/components/desktop/DesktopShell";
+import { DesktopShell, AccountMenu } from "@/components/desktop/DesktopShell";
 import { DesktopButton } from "@/components/desktop/DesktopButton";
 import Map from "@/components/Map";
 import type { Park as MapPark } from "@/components/LeafletMap";
+import EditProfileDialog from "@/components/EditProfileDialog";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -135,6 +136,7 @@ function BigStat({
   color,
   delta,
   icon: Icon,
+  loading = false,
 }: {
   kicker: string;
   value: number | string;
@@ -143,6 +145,7 @@ function BigStat({
   color: string;
   delta: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>;
+  loading?: boolean;
 }) {
   return (
     <div
@@ -188,26 +191,32 @@ function BigStat({
           marginTop: 6,
         }}
       >
-        <div
-          style={{
-            fontWeight: 900,
-            fontSize: 38,
-            color: "var(--ink)",
-            letterSpacing: -1.2,
-            lineHeight: 1,
-          }}
-        >
-          {value}
-        </div>
-        {total && (
-          <div style={{ fontSize: 14, color: "var(--ink-mute)", fontWeight: 600 }}>
-            / {total}
-          </div>
-        )}
-        {unit && (
-          <div style={{ fontSize: 13, color: "var(--ink-mute)", fontWeight: 600 }}>
-            {unit}
-          </div>
+        {loading ? (
+          <Skel width={56} height={38} radius={6} />
+        ) : (
+          <>
+            <div
+              style={{
+                fontWeight: 900,
+                fontSize: 38,
+                color: "var(--ink)",
+                letterSpacing: -1.2,
+                lineHeight: 1,
+              }}
+            >
+              {value}
+            </div>
+            {total && (
+              <div style={{ fontSize: 14, color: "var(--ink-mute)", fontWeight: 600 }}>
+                / {total}
+              </div>
+            )}
+            {unit && (
+              <div style={{ fontSize: 13, color: "var(--ink-mute)", fontWeight: 600 }}>
+                {unit}
+              </div>
+            )}
+          </>
         )}
       </div>
       <div
@@ -227,6 +236,15 @@ function BigStat({
         </div>
       </div>
     </div>
+  );
+}
+
+function Skel({ width, height, radius = 6 }: { width?: number | string; height: number; radius?: number }) {
+  return (
+    <div
+      className="animate-pulse"
+      style={{ width, height, borderRadius: radius, background: "var(--surface-alt)" }}
+    />
   );
 }
 
@@ -313,6 +331,7 @@ export default function DashboardPage() {
   const [closestBadges,  setClosestBadges]  = useState<BadgeData[]>([]);
   const [miniMapParks,   setMiniMapParks]   = useState<MapPark[]>([]);
   const [loading,        setLoading]        = useState(true);
+  const [editOpen,       setEditOpen]       = useState(false);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/");
@@ -385,6 +404,7 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, [isSignedIn]);
 
+  const isReady = isLoaded && !loading;
   const firstName = user?.firstName ?? "Explorer";
 
   // Formatted date kicker
@@ -397,13 +417,18 @@ export default function DashboardPage() {
 
   return (
     <DesktopShell>
+      <EditProfileDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => { void user?.reload(); }}
+      />
       <div style={{ padding: "24px 32px 32px", overflowY: "auto", height: "100%" }}>
 
         {/* ── Greeting row ──────────────────────────────────────── */}
         <div
           style={{
             display: "flex",
-            alignItems: "flex-end",
+            alignItems: "flex-start",
             justifyContent: "space-between",
             marginBottom: 22,
           }}
@@ -422,53 +447,65 @@ export default function DashboardPage() {
             >
               {dateKicker}
             </div>
-            <div
-              style={{
-                fontWeight: 800,
-                fontSize: 36,
-                color: "var(--ink)",
-                letterSpacing: -0.8,
-                lineHeight: 1,
-              }}
-            >
-              Welcome back,{" "}
-              <span style={{ color: "var(--primary)" }}>{firstName}</span>.
-            </div>
-            <div
-              style={{
-                fontSize: 15,
-                color: "var(--ink-mute)",
-                marginTop: 8,
-              }}
-            >
-              You&rsquo;ve logged{" "}
-              <strong style={{ color: "var(--ink)", fontWeight: 700 }}>
-                {visitedCount} parks
-              </strong>
-              , you&rsquo;re{" "}
-              <strong style={{ color: "var(--ink)", fontWeight: 700 }}>
-                {parksLeft} away from legendary
-              </strong>
-              , and{" "}
-              <strong style={{ color: "var(--ink)", fontWeight: 700 }}>
-                {badgesEarned} badges
-              </strong>{" "}
-              earned so far.
-            </div>
+            {isReady ? (
+              <>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 36,
+                    color: "var(--ink)",
+                    letterSpacing: -0.8,
+                    lineHeight: 1,
+                  }}
+                >
+                  Welcome back,{" "}
+                  <span style={{ color: "var(--primary)" }}>{firstName}</span>.
+                </div>
+                <div
+                  style={{
+                    fontSize: 15,
+                    color: "var(--ink-mute)",
+                    marginTop: 8,
+                  }}
+                >
+                  You&rsquo;ve logged{" "}
+                  <strong style={{ color: "var(--ink)", fontWeight: 700 }}>
+                    {visitedCount} parks
+                  </strong>
+                  , you&rsquo;re{" "}
+                  <strong style={{ color: "var(--ink)", fontWeight: 700 }}>
+                    {parksLeft} away from legendary
+                  </strong>
+                  , and{" "}
+                  <strong style={{ color: "var(--ink)", fontWeight: 700 }}>
+                    {badgesEarned} badges
+                  </strong>{" "}
+                  earned so far.
+                </div>
+              </>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+                <Skel width={300} height={36} radius={8} />
+                <Skel width={440} height={18} radius={5} />
+              </div>
+            )}
           </div>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-            <DesktopButton>
-              <Plus size={14} strokeWidth={2.4} /> Log a visit
-            </DesktopButton>
-            <DesktopButton primary>
-              <Compass size={14} strokeWidth={2} />
-              <Link
-                href="/planner"
-                style={{ color: "inherit", textDecoration: "none" }}
-              >
-                Plan a trip
-              </Link>
-            </DesktopButton>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10, flexShrink: 0 }}>
+            <AccountMenu compact onEditAccount={() => setEditOpen(true)} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <DesktopButton>
+                <Plus size={14} strokeWidth={2.4} /> Log a visit
+              </DesktopButton>
+              <DesktopButton primary>
+                <Compass size={14} strokeWidth={2} />
+                <Link
+                  href="/planner"
+                  style={{ color: "inherit", textDecoration: "none" }}
+                >
+                  Plan a trip
+                </Link>
+              </DesktopButton>
+            </div>
           </div>
         </div>
 
@@ -488,6 +525,7 @@ export default function DashboardPage() {
             color="var(--visited)"
             delta="+2 this year"
             icon={MapPin}
+            loading={!isReady}
           />
           <BigStat
             kicker="BUCKET LIST"
@@ -495,6 +533,7 @@ export default function DashboardPage() {
             color="var(--bucket)"
             delta="add more parks"
             icon={Bookmark}
+            loading={!isReady}
           />
           <BigStat
             kicker="BADGES"
@@ -502,6 +541,7 @@ export default function DashboardPage() {
             color="var(--accent)"
             delta={closestBadges.length > 0 ? `${closestBadges.length} close to unlock` : "keep exploring"}
             icon={Award}
+            loading={!isReady}
           />
           <BigStat
             kicker="PARKS LEFT"
@@ -510,6 +550,7 @@ export default function DashboardPage() {
             color="var(--primary)"
             delta="until legendary status"
             icon={Mountain}
+            loading={!isReady}
           />
         </div>
 
