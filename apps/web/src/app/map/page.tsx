@@ -182,14 +182,16 @@ export default function Home() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
+        e.stopImmediatePropagation(); // prevent GlobalSpotlight in DesktopShell from also opening
         setSpotOpen((s) => !s);
       } else if (e.key === 'Escape') {
         setSpotOpen(false);
         // Panel closes itself via its own Escape handler (lightbox-aware)
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Capture phase so this fires before DesktopShell's bubble-phase handler
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, []);
 
   const handleMarkVisited = (parkCode: string) => {
@@ -257,7 +259,7 @@ export default function Home() {
 
   if (isSignedIn) {
     return (
-      <DesktopShell fullbleed>
+      <DesktopShell fullbleed onOpenSpotlight={() => setSpotOpen(true)}>
         {/* Full-bleed map area with absolute floating panels */}
         <div className="relative h-full w-full" style={{ background: "#E8E2D0" }}>
 

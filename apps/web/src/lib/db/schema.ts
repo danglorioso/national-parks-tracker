@@ -99,3 +99,19 @@ export type Like = typeof likes.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type NewComment = typeof comments.$inferInsert;
 export type UserBadge = typeof userBadges.$inferSelect;
+
+export const notifications = pgTable('notifications', {
+  id: serial('id').primaryKey(),
+  recipient_id: varchar('recipient_id', { length: 255 }).notNull(),
+  actor_id: varchar('actor_id', { length: 255 }),
+  type: varchar('type', { length: 50 }).notNull(), // 'follow' | 'like' | 'comment' | 'post' | 'system' | 'recommendation'
+  post_id: integer('post_id').references(() => posts.id, { onDelete: 'cascade' }),
+  visit_id: integer('visit_id').references(() => visits.id, { onDelete: 'cascade' }),
+  park_code: varchar('park_code', { length: 10 }).references(() => parks.park_code),
+  metadata: jsonb('metadata').$type<{ message?: string; excerpt?: string }>(),
+  read: boolean('read').default(false).notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;
