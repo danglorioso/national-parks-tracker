@@ -281,7 +281,7 @@ export function MapSpotlight({ parks, open, onToggle, onClose, onPick }: Props) 
       style={{
         position: "absolute",
         top: 16,
-        left: centreLeft,
+        left: "50%",
         transform: "translateX(-50%)",
         zIndex: 30,
         width: 560,
