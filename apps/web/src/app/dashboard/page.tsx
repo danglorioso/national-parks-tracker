@@ -87,7 +87,7 @@ function Panel({
         style={{
           padding: "14px 18px 10px",
           display: "flex",
-          alignItems: "flex-end",
+          alignItems: "center",
           justifyContent: "space-between",
           borderBottom: fullbleed ? "none" : "0.5px solid var(--hairline-soft)",
           flexShrink: 0,
@@ -561,7 +561,7 @@ export default function DashboardPage() {
             fullbleed
             action={
               <Link href="/map" style={{ textDecoration: "none" }}>
-                <DesktopButton size="sm">
+                <DesktopButton size="sm" primary>
                   Open map →
                 </DesktopButton>
               </Link>
