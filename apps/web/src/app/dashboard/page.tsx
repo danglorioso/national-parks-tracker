@@ -4,15 +4,20 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   MapPin, Bookmark, Award, Mountain,
   Plus, Compass, ChevronRight,
 } from "lucide-react";
 import { DesktopShell, AccountMenu } from "@/components/desktop/DesktopShell";
 import { DesktopButton } from "@/components/desktop/DesktopButton";
-import Map from "@/components/Map";
-import type { Park as MapPark } from "@/components/LeafletMap";
+import type { MapPark } from "@/components/USAMapGL";
 import EditProfileDialog from "@/components/EditProfileDialog";
+
+const USAMap = dynamic(() => import("@/components/USAMapGL"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full" style={{ background: "#CECDBC" }} />,
+});
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -120,6 +125,7 @@ function Panel({
           padding: fullbleed ? 0 : "12px 18px 16px",
           flex: 1,
           minHeight: 0,
+          ...(fullbleed ? { display: "flex", flexDirection: "column" } : {}),
         }}
       >
         {children}
@@ -332,6 +338,7 @@ export default function DashboardPage() {
   const [miniMapParks,   setMiniMapParks]   = useState<MapPark[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [editOpen,       setEditOpen]       = useState(false);
+  const [mapHover,       setMapHover]       = useState(false);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) router.push("/");
@@ -370,7 +377,6 @@ export default function DashboardPage() {
           .map((p) => ({
             park_code: p.park_code,
             name: p.name,
-            states: p.states,
             position: [parseFloat(p.latitude!), parseFloat(p.longitude!)] as [number, number],
             status: visitedCodes.has(p.park_code)
               ? "visited"
@@ -575,53 +581,66 @@ export default function DashboardPage() {
               </Link>
             }
           >
-            <div
-              style={{
-                position: "relative",
-                height: 260,
-                borderRadius: "0 0 14px 14px",
-                overflow: "hidden",
-                background: "#E8E2D0",
-              }}
-            >
-              {!loading && miniMapParks.length > 0 && (
-                <Map
-                  center={[39.8283, -98.5795]}
-                  zoom={3}
-                  className="h-full w-full"
-                  parks={miniMapParks}
-                />
-              )}
-              {/* Mini legend overlay */}
+            <Link href="/map" style={{ display: "flex", flexDirection: "column", flex: 1, textDecoration: "none" }}>
               <div
                 style={{
-                  position: "absolute",
-                  bottom: 10,
-                  left: 10,
-                  background: "rgba(255,251,241,0.92)",
-                  border: "0.5px solid var(--hairline)",
-                  borderRadius: 8,
-                  padding: "6px 10px",
-                  display: "flex",
-                  gap: 10,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 9,
-                  letterSpacing: "0.8px",
-                  color: "var(--ink-soft)",
+                  position: "relative",
+                  flex: 1,
+                  minHeight: 220,
+                  overflow: "hidden",
+                  background: "#CECDBC",
+                  cursor: "pointer",
                 }}
+                onMouseEnter={() => setMapHover(true)}
+                onMouseLeave={() => setMapHover(false)}
               >
-                {[
-                  { color: "var(--visited)",   label: "Visited" },
-                  { color: "var(--bucket)",    label: "Bucket" },
-                  { color: "var(--unvisited)", label: "Not yet" },
-                ].map(({ color, label }) => (
-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
-                    {label}
+                {/* Non-interactive map */}
+                <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+                  {!loading && miniMapParks.length > 0 && (
+                    <USAMap
+                      parks={miniMapParks}
+                      className="h-full w-full"
+                      initialBounds={[[-125, 24], [-66, 50]]}
+                      showControls={false}
+                    />
+                  )}
+                </div>
+
+                {/* Hover affordance */}
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: mapHover ? "rgba(22,34,26,0.22)" : "rgba(0,0,0,0)",
+                    transition: "background 180ms",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "rgba(255,251,241,0.95)",
+                      backdropFilter: "blur(12px)",
+                      WebkitBackdropFilter: "blur(12px)",
+                      borderRadius: 100,
+                      padding: "8px 20px",
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      color: "var(--primary)",
+                      letterSpacing: 0.2,
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.14)",
+                      opacity: mapHover ? 1 : 0,
+                      transform: mapHover ? "translateY(0)" : "translateY(4px)",
+                      transition: "opacity 180ms, transform 180ms",
+                    }}
+                  >
+                    View full map →
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
+            </Link>
           </Panel>
 
           {/* Activity feed */}
