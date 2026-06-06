@@ -75,7 +75,7 @@ export default function Home() {
   }, [isSignedIn, isLoaded, router]);
 
   const [spotOpen, setSpotOpen] = useState(false);
-  const [flyToTarget, setFlyToTarget] = useState<[number, number] | null>(null);
+  const [flyToTarget, setFlyToTarget] = useState<{ coords: [number, number]; rightPadding: number } | null>(null);
 
   const fetchParksAndVisits = async () => {
     try {
@@ -336,9 +336,10 @@ export default function Home() {
             open={spotOpen}
             onToggle={() => setSpotOpen((s) => !s)}
             onClose={() => setSpotOpen(false)}
+            rightPanelOpen={selectedPark !== null}
             onPick={(code) => {
               const park = parks.find((p) => p.park_code === code);
-              if (park) setFlyToTarget([...park.position]);
+              if (park) setFlyToTarget({ coords: [...park.position] as [number, number], rightPadding: 376 });
               setSelectedParkCode(code);
               setSpotOpen(false);
             }}

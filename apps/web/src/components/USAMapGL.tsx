@@ -21,7 +21,7 @@ interface Props {
   className?: string;
   initialBounds?: [[number, number], [number, number]];
   showControls?: boolean;
-  flyToTarget?: [number, number] | null; // [lat, lng] — changes trigger a flyTo
+  flyToTarget?: { coords: [number, number]; rightPadding?: number } | null;
 }
 
 const VISITED_COLOR = "#2F7A4A";
@@ -339,11 +339,12 @@ export default function USAMapGL({
     if (!flyToTarget) return;
     const map = mapRef.current;
     if (!map) return;
-    const [lat, lng] = flyToTarget;
+    const { coords: [lat, lng], rightPadding = 0 } = flyToTarget;
     const doFly = () =>
       map.flyTo({
         center: [lng, lat],
         zoom: Math.max(map.getZoom(), 7),
+        padding: { top: 0, bottom: 0, left: 0, right: rightPadding },
         duration: 900,
         essential: true,
       });

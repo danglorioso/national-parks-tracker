@@ -21,6 +21,7 @@ interface Props {
   onToggle: () => void;
   onClose: () => void;
   onPick: (code: string) => void;
+  rightPanelOpen?: boolean;
 }
 
 const STATUS_DOT: Record<ParkStatus, string> = {
