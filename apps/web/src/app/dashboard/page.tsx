@@ -7,10 +7,9 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
   MapPin, Bookmark, Award, Mountain,
-  Plus, Compass, ChevronRight,
+  ChevronRight,
 } from "lucide-react";
 import { DesktopShell, AccountMenu } from "@/components/desktop/DesktopShell";
-import { DesktopButton } from "@/components/desktop/DesktopButton";
 import type { MapPark } from "@/components/USAMapGL";
 import EditProfileDialog from "@/components/EditProfileDialog";
 
@@ -496,22 +495,8 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10, flexShrink: 0 }}>
+          <div style={{ flexShrink: 0 }}>
             <AccountMenu compact onEditAccount={() => setEditOpen(true)} />
-            <div style={{ display: "flex", gap: 8 }}>
-              <DesktopButton>
-                <Plus size={14} strokeWidth={2.4} /> Log a visit
-              </DesktopButton>
-              <DesktopButton primary>
-                <Compass size={14} strokeWidth={2} />
-                <Link
-                  href="/planner"
-                  style={{ color: "inherit", textDecoration: "none" }}
-                >
-                  Plan a trip
-                </Link>
-              </DesktopButton>
-            </div>
           </div>
         </div>
 
