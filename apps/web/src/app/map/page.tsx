@@ -271,6 +271,7 @@ export default function Home() {
             selectedParkCode={selectedParkCode}
             onSelectPark={setSelectedParkCode}
             onDeselect={() => setSelectedParkCode(null)}
+            flyToTarget={flyToTarget}
           />
 
           {/* Top-left — Filter + counts pill */}
