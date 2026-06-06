@@ -751,29 +751,148 @@ function WeatherPicker({ value, onChange }: { value: WeatherState; onChange: (v:
 
 // ── Activity picker ────────────────────────────────────────────────────────
 
-function ActivityPicker({ value, onChange, options = ALL_ACTIVITIES }: { value: string[]; onChange: (v: string[]) => void; options?: string[] }) {
+function ActivityPicker({ value, onChange, options = ALL_ACTIVITIES, npsActivityNames = [] }: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  options?: string[];
+  npsActivityNames?: string[];
+}) {
+  const [query, setQuery] = useState("");
+  const [dropOpen, setDropOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const toggle = (a: string) => {
     if (value.includes(a)) onChange(value.filter(x => x !== a));
     else if (value.length < 8) onChange([...value, a]);
   };
+
+  const suggestions = query.trim().length > 0
+    ? npsActivityNames
+        .filter(name =>
+          name.toLowerCase().includes(query.toLowerCase()) &&
+          !value.some(v => v.toLowerCase() === name.toLowerCase())
+        )
+        .slice(0, 8)
+    : [];
+
+  const queryLower = query.trim().toLowerCase();
+  const exactMatch = suggestions.some(s => s.toLowerCase() === queryLower);
+  const alreadyAdded = value.some(v => v.toLowerCase() === queryLower);
+  const showAddNew = query.trim().length > 1 && !exactMatch && !alreadyAdded;
+
+  const addActivity = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || value.length >= 8) return;
+    const hardcoded = options.find(o => o.toLowerCase() === trimmed.toLowerCase());
+    const key = hardcoded ?? trimmed;
+    if (!value.some(v => v.toLowerCase() === key.toLowerCase())) {
+      onChange([...value, key]);
+    }
+    setQuery("");
+    setDropOpen(false);
+  };
+
+  const customActivities = value.filter(a => !options.includes(a));
+  const hasDropdown = dropOpen && (suggestions.length > 0 || showAddNew);
+
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-      {options.map(a => {
-        const on = value.includes(a);
-        return (
-          <button key={a} onClick={() => toggle(a)} style={{
-            background: on ? "var(--primary)" : "var(--surface-alt)",
-            color: on ? "#FFFBF1" : "var(--ink-soft)",
-            border: `0.5px solid ${on ? "var(--primary)" : "var(--hairline)"}`,
-            borderRadius: 100, padding: "7px 13px", cursor: "pointer",
-            fontWeight: 600, fontSize: 12.5, textTransform: "capitalize",
-            display: "flex", alignItems: "center", gap: 5, fontFamily: "inherit",
-            transition: "all 110ms",
+    <div>
+      {/* Hardcoded quick-select chips */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
+        {options.map(a => {
+          const on = value.includes(a);
+          return (
+            <button key={a} onClick={() => toggle(a)} style={{
+              background: on ? "var(--primary)" : "var(--surface-alt)",
+              color: on ? "#FFFBF1" : "var(--ink-soft)",
+              border: `0.5px solid ${on ? "var(--primary)" : "var(--hairline)"}`,
+              borderRadius: 100, padding: "7px 13px", cursor: "pointer",
+              fontWeight: 600, fontSize: 12.5, textTransform: "capitalize",
+              display: "flex", alignItems: "center", gap: 5, fontFamily: "inherit",
+              transition: "all 110ms",
+            }}>
+              {on && <Check style={{ width: 12, height: 12 }} strokeWidth={2.6} />}
+              {a}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Custom (non-hardcoded) activity chips */}
+      {customActivities.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
+          {customActivities.map(a => (
+            <div key={a} style={{ display: "flex", alignItems: "center", gap: 5, background: "var(--primary)", color: "#FFFBF1", borderRadius: 100, padding: "7px 7px 7px 13px", fontWeight: 600, fontSize: 12.5 }}>
+              {a}
+              <button onClick={() => toggle(a)} style={{ background: "rgba(255,251,241,0.2)", border: 0, borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
+                <X style={{ width: 10, height: 10, color: "#FFFBF1" }} strokeWidth={2.4} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Custom activity search input */}
+      {value.length < 8 && (
+        <div style={{ position: "relative" }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: "var(--surface)", border: "0.5px solid var(--hairline)",
+            borderRadius: hasDropdown ? "10px 10px 0 0" : 10,
+            padding: "9px 12px",
           }}>
-            {a}
-          </button>
-        );
-      })}
+            <Search style={{ width: 14, height: 14, color: "var(--ink-mute)", flexShrink: 0 }} strokeWidth={2} />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={e => { setQuery(e.target.value); setDropOpen(true); }}
+              onFocus={() => setDropOpen(true)}
+              onBlur={() => setTimeout(() => setDropOpen(false), 150)}
+              onKeyDown={e => {
+                if (e.key === "Enter") { e.preventDefault(); if (suggestions.length > 0) addActivity(suggestions[0]); else if (query.trim()) addActivity(query); }
+                if (e.key === "Escape") { setQuery(""); setDropOpen(false); }
+              }}
+              placeholder="Add another activity…"
+              style={{ flex: 1, border: 0, outline: "none", background: "transparent", fontSize: 13.5, color: "var(--ink)", fontFamily: "inherit" }}
+            />
+            {query && (
+              <button onClick={() => { setQuery(""); setDropOpen(false); }} style={{ background: "none", border: 0, cursor: "pointer", color: "var(--ink-mute)", lineHeight: 0, padding: 0 }}>
+                <X style={{ width: 13, height: 13 }} strokeWidth={2} />
+              </button>
+            )}
+          </div>
+
+          {hasDropdown && (
+            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20, background: "var(--surface)", border: "0.5px solid var(--hairline)", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
+              {suggestions.map((name, i) => (
+                <button
+                  key={name}
+                  onMouseDown={() => addActivity(name)}
+                  style={{ width: "100%", textAlign: "left", background: "transparent", border: 0, borderBottom: (i < suggestions.length - 1 || showAddNew) ? "0.5px solid var(--hairline-soft)" : "none", padding: "9px 14px", cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, color: "var(--ink)", fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--surface-alt)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                >
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--primary)", flexShrink: 0 }} />
+                  {name}
+                </button>
+              ))}
+              {showAddNew && (
+                <button
+                  onMouseDown={() => addActivity(query)}
+                  style={{ width: "100%", textAlign: "left", background: "transparent", border: 0, padding: "9px 14px", cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, color: "var(--primary)", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "var(--surface-alt)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                >
+                  <div style={{ width: 16, height: 16, borderRadius: 4, background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ color: "#FFFBF1", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>+</span>
+                  </div>
+                  Add &ldquo;{query.trim()}&rdquo;
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1216,7 +1335,7 @@ function StepRate({ draft, set }: { draft: VisitDraft; set: SetFn }) {
   );
 }
 
-function StepJournal({ draft, set, activities }: { draft: VisitDraft; set: SetFn; activities: string[] }) {
+function StepJournal({ draft, set, activities, npsActivityNames }: { draft: VisitDraft; set: SetFn; activities: string[]; npsActivityNames: string[] }) {
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", gap: 18, marginBottom: 18 }}>
@@ -1236,7 +1355,7 @@ function StepJournal({ draft, set, activities }: { draft: VisitDraft; set: SetFn
         </Section>
       </div>
       <Section title="Activities" mb={18}>
-        <ActivityPicker value={draft.activities} onChange={v => set("activities", v)} options={activities} />
+        <ActivityPicker value={draft.activities} onChange={v => set("activities", v)} options={activities} npsActivityNames={npsActivityNames} />
       </Section>
       <Section title="Who came along?" mb={18}>
         <CompanionPicker value={draft.companions} onChange={v => set("companions", v)} />
@@ -1473,7 +1592,7 @@ export function LogVisitModal({ open, onClose, onPosted, initialDraft, editMode 
   const renderStep = (key: string) => {
     if (key === "where")   return <StepWhere   draft={draft} set={set} onOpenPark={() => setShowParkPicker(true)} park={park} />;
     if (key === "rate")    return <StepRate    draft={draft} set={set} />;
-    if (key === "journal") return <StepJournal draft={draft} set={set} activities={availableActivities} />;
+    if (key === "journal") return <StepJournal draft={draft} set={set} activities={availableActivities} npsActivityNames={npsActivityCache?.names ?? []} />;
     if (key === "share")   return <StepShare   draft={draft} set={set} />;
     return null;
   };

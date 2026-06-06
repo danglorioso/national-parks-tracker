@@ -133,7 +133,7 @@ export function AccountMenu({ onEditAccount, compact = false }: { onEditAccount:
         style={{
           width: compact ? "auto" : "100%",
           background: open ? "rgba(31,61,46,0.06)" : "transparent",
-          border: `0.5px solid ${open ? "var(--hairline)" : "transparent"}`,
+          border: `0.5px solid ${open ? "var(--hairline)" : compact ? "var(--hairline-soft)" : "transparent"}`,
           borderRadius: 12,
           padding: compact ? "5px 8px 5px 5px" : "8px 10px 8px 8px",
           cursor: "pointer",
