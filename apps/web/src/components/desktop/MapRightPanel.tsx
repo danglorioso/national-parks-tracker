@@ -178,9 +178,8 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
       .catch(() => {});
   }, [park.park_code]);
 
-  // Build carousel images: user photos first, then NPS
-  const userPhotos: LightboxImage[] = (park.photos ?? []).map((url) => ({ url }));
-  const allImages: LightboxImage[] = [...userPhotos, ...npsImages];
+  // Carousel shows only NPS images — user photos appear in the visits section below
+  const allImages: LightboxImage[] = npsImages;
 
   const heroImage = allImages[imgIdx] ?? null;
   const total = allImages.length;
@@ -467,6 +466,21 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
                               No notes
                             </div>
                           )}
+                          {/* Show user photos on the most recent visit */}
+                          {sortedVisits[0]?.id === visit.id && park.photos && park.photos.length > 0 && (
+                            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 10 }}>
+                              {park.photos.map((url, i) => (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  key={url}
+                                  src={url}
+                                  alt=""
+                                  onClick={() => setLightbox(-(i + 1))}
+                                  style={{ width: 56, height: 56, borderRadius: 7, objectFit: "cover", cursor: "zoom-in" }}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -515,12 +529,20 @@ export function MapRightPanel({ park, onClose, onMarkVisited, onAddToBucketList,
         </div>
       </div>
 
-      {lightbox !== null && allImages.length > 0 && (
-        <LightboxModal
-          images={allImages}
-          startIndex={lightbox}
-          onClose={() => setLightbox(null)}
-        />
+      {lightbox !== null && (
+        lightbox < 0 ? (
+          <LightboxModal
+            images={(park.photos ?? []).map((url) => ({ url }))}
+            startIndex={-(lightbox + 1)}
+            onClose={() => setLightbox(null)}
+          />
+        ) : allImages.length > 0 ? (
+          <LightboxModal
+            images={allImages}
+            startIndex={lightbox}
+            onClose={() => setLightbox(null)}
+          />
+        ) : null
       )}
     </>
   );
